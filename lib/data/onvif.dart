@@ -735,3 +735,428 @@ String _uuidV4() {
       '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
       '${hex.substring(20)}';
 }
+
+// ═══════════════════════════════════════════════════════════
+// ÉVÉNEMENTS ONVIF — PullPoint (alertes temps réel)
+//
+// Cycle de vie WS-BaseNotification (profil ONVIF) :
+//   1. createPullPointSubscription → l'appareil réserve un point de
+//      retrait et renvoie son URL dédiée (valide ~60 s par défaut).
+//   2. pullMessages en boucle (long-poll : l'appel BLOQUE côté serveur
+//      jusqu'à un événement ou l'expiration du timeout) → [OnvifEvent].
+//   3. renewSubscription périodique pour maintenir la souscription
+//      vivante (elle expire sinon — TerminationTime).
+//   4. unsubscribe pour libérer proprement.
+//
+// Événements typiques : tns1:VideoAnalytics/MotionAlarm (détection de
+// mouvement, Data/State=true|false), tns1:AudioAnalytics/AudioDetected,
+// tns1:RuleEngine/…, tns1:Device/HardwareFailure… — voir [OnvifEvent.topic].
+// ═══════════════════════════════════════════════════════════
+
+const _nsEventsWsdl = 'http://www.onvif.org/ver10/events/wsdl';
+const _nsWsn = 'http://docs.oasis-open.org/wsn/b-2';
+
+/// Identifiants ONVIF (WS-Security UsernameToken Digest).
+class OnvifCredentials {
+  const OnvifCredentials({required this.user, required this.password});
+
+  final String user;
+  final String password;
+}
+
+/// Souscription PullPoint active : [url] est le point de retrait dédié
+/// (à passer à [pullMessages] / [renewSubscription] / [unsubscribe]).
+class PullPointSubscription {
+  const PullPointSubscription({
+    required this.url,
+    this.currentTime,
+    this.terminationTime,
+  });
+
+  /// Adresse du pull point (renvoyée par l'appareil, à durée de vie
+  /// limitée — renouveler via [renewSubscription]).
+  final String url;
+
+  /// Heure appareil au moment de la création.
+  final DateTime? currentTime;
+
+  /// Expiration de la souscription — après cette date le pull point
+  /// est détruit par l'appareil.
+  final DateTime? terminationTime;
+
+  @override
+  String toString() => 'PullPointSubscription($url, expire $terminationTime)';
+}
+
+/// Notification reçue d'un appareil ONVIF (mouvement, audio, règle…).
+class OnvifEvent {
+  const OnvifEvent({
+    required this.topic,
+    this.timestamp,
+    this.propertyOperation,
+    this.source = const {},
+    this.data = const {},
+  });
+
+  /// Sujet ONVIF — ex. `tns1:VideoAnalytics/MotionAlarm`,
+  /// `tns1:AudioAnalytics/AudioDetected`.
+  final String topic;
+
+  /// Horodatage appareil (attribut `UtcTime` du Message).
+  final DateTime? timestamp;
+
+  /// `Initialized` / `Changed` / `Deleted`.
+  final String? propertyOperation;
+
+  /// Items sources — ex. `{VideoSourceConfiguration: 1}` (quel capteur).
+  final Map<String, String> source;
+
+  /// Items données — ex. `{State: true}` (l'état de l'alarme).
+  final Map<String, String> data;
+
+  /// Espace de noms du sujet — ex. `tns1:` pour
+  /// `tns1:VideoAnalytics/MotionAlarm` (vide si absent).
+  String get topicNamespace {
+    final i = topic.indexOf(':');
+    return i < 0 ? '' : topic.substring(0, i + 1);
+  }
+
+  /// Segments hiérarchiques du sujet — ex.
+  /// `['VideoAnalytics', 'MotionAlarm']` pour
+  /// `tns1:VideoAnalytics/MotionAlarm` (utile au routage UI).
+  List<String> get topicSegments {
+    var t = topic;
+    final i = t.indexOf(':');
+    // Ne retire le préfixe que si c'est un namespace (pas un segment).
+    if (i >= 0 && !t.substring(0, i).contains('/')) {
+      t = t.substring(i + 1);
+    }
+    return t.split('/').where((s) => s.isNotEmpty).toList();
+  }
+
+  /// Alarme de mouvement ACTIVE — absorbe la variance des firmwares :
+  ///  - sujets : `…/MotionAlarm`, `…/Motion`, `…/CellMotionDetectorAlarm/Motion`
+  ///  - items  : `State` (Hikvision), `IsMotion`, `IsActive` (Axis)
+  ///  - valeurs : `true`, `yes`, `1`
+  bool get isMotionActive {
+    if (!topic.contains('Motion')) return false;
+    for (final key in const ['State', 'IsMotion', 'IsActive']) {
+      final v = data[key]?.toLowerCase();
+      if (v == 'true' || v == 'yes' || v == '1') return true;
+    }
+    return false;
+  }
+
+  @override
+  String toString() => 'OnvifEvent($topic, $data)';
+}
+
+/// Étape 1 — crée une souscription PullPoint sur le service événements
+/// de l'appareil (chemin standard `/onvif/event_service`, avec repli sur
+/// l'URL fournie pour les appareils atypiques). Durée initiale : 1 min.
+Future<PullPointSubscription> createPullPointSubscription(
+  String deviceUrl,
+  OnvifCredentials creds,
+) async {
+  final base = Uri.tryParse(deviceUrl);
+  if (base == null || !base.hasScheme) {
+    throw OnvifException('URL d\'appareil invalide : $deviceUrl');
+  }
+
+  const body =
+      '<CreatePullPointSubscription xmlns="$_nsEventsWsdl">'
+      '<InitialTerminationTime>PT1M</InitialTerminationTime>'
+      '</CreatePullPointSubscription>';
+  const action = '$_nsEventsWsdl/CreatePullPointSubscription';
+
+  XmlElement root;
+  try {
+    root = await _eventsPost(
+      uri: base.replace(path: '/onvif/event_service'),
+      bodyXml: body,
+      soapAction: action,
+      creds: creds,
+    );
+  } on OnvifException {
+    // Repli : certains firmwares n'exposent pas le chemin standard du
+    // service événements — on retente l'URL appareil telle quelle.
+    root = await _eventsPost(
+      uri: base,
+      bodyXml: body,
+      soapAction: action,
+      creds: creds,
+    );
+  }
+  return parsePullPointSubscriptionForTest(root.toXmlString());
+}
+
+/// Étape 2 — retire les événements en attente (long-poll : l'appel
+/// bloque côté appareil jusqu'à un événement ou [timeout]).
+/// Retourne les notifications reçues (souvent 0 ou 1 par appel).
+Future<List<OnvifEvent>> pullMessages(
+  String subscriptionUrl,
+  OnvifCredentials creds, {
+  Duration timeout = const Duration(seconds: 5),
+  int messageLimit = 50,
+}) async {
+  final uri = Uri.tryParse(subscriptionUrl);
+  if (uri == null || !uri.hasScheme) {
+    throw OnvifException('URL de souscription invalide.');
+  }
+
+  final body =
+      '<PullMessages xmlns="$_nsEventsWsdl">'
+      '<Timeout>${formatXsDuration(timeout)}</Timeout>'
+      '<MessageLimit>$messageLimit</MessageLimit>'
+      '</PullMessages>';
+
+  // Marge réseau au-dessus du long-poll serveur.
+  final httpTimeout = timeout + const Duration(seconds: 10);
+
+  final root = await _eventsPost(
+    uri: uri,
+    bodyXml: body,
+    soapAction: '$_nsEventsWsdl/PullMessages',
+    creds: creds,
+    timeout: httpTimeout,
+  );
+  return parseOnvifEventsForTest(root.toXmlString());
+}
+
+/// Étape 3 — prolonge la souscription avant son expiration (défaut 1 min).
+/// À appeler périodiquement pendant la boucle de pull.
+Future<void> renewSubscription(
+  String subscriptionUrl,
+  OnvifCredentials creds, {
+  Duration? terminationTime,
+}) async {
+  final uri = Uri.tryParse(subscriptionUrl);
+  if (uri == null || !uri.hasScheme) {
+    throw OnvifException('URL de souscription invalide.');
+  }
+
+  final t = formatXsDuration(terminationTime ?? const Duration(minutes: 1));
+  final body =
+      '<wsnt:Renew xmlns:wsnt="$_nsWsn">'
+      '<wsnt:TerminationTime>$t</wsnt:TerminationTime>'
+      '</wsnt:Renew>';
+
+  await _eventsPost(
+    uri: uri,
+    bodyXml: body,
+    soapAction: '$_nsWsn/Renew',
+    creds: creds,
+  );
+}
+
+/// Étape 4 — libère le pull point côté appareil.
+Future<void> unsubscribe(String subscriptionUrl, OnvifCredentials creds) async {
+  final uri = Uri.tryParse(subscriptionUrl);
+  if (uri == null || !uri.hasScheme) {
+    throw OnvifException('URL de souscription invalide.');
+  }
+
+  const body = '<wsnt:Unsubscribe xmlns:wsnt="$_nsWsn"/>';
+
+  await _eventsPost(
+    uri: uri,
+    bodyXml: body,
+    soapAction: '$_nsWsn/Unsubscribe',
+    creds: creds,
+  );
+}
+
+/// Formate une [Duration] en xs:duration (PT5S, PT1M30S…).
+String formatXsDuration(Duration d) {
+  final s = d.inSeconds;
+  if (s == 0) return 'PT0S';
+  if (s < 60) return 'PT${s}S';
+  final m = s ~/ 60;
+  final rest = s % 60;
+  return 'PT${m}M${rest > 0 ? '${rest}S' : ''}';
+}
+
+/// POST SOAP vers un service événements, avec WS-Security Digest et
+/// gestion d'erreurs alignée sur [OnvifDevice].
+Future<XmlElement> _eventsPost({
+  required Uri uri,
+  required String bodyXml,
+  required String soapAction,
+  required OnvifCredentials creds,
+  Duration timeout = const Duration(seconds: 15),
+}) async {
+  final envelope = OnvifDevice.soapEnvelope(
+    bodyXml: bodyXml,
+    action: soapAction,
+    user: creds.user,
+    password: creds.password,
+  );
+
+  final client = HttpClient()..connectionTimeout = timeout;
+  try {
+    final request = await client
+        .postUrl(uri)
+        .timeout(
+          timeout,
+          onTimeout: () => throw OnvifException(
+            'Délai dépassé — l\'appareil ne répond pas.',
+          ),
+        );
+    request.headers.contentType = ContentType(
+      'application',
+      'soap+xml',
+      charset: 'utf-8',
+    );
+    request.write(envelope);
+
+    final response = await request.close().timeout(timeout);
+    final text = await response.transform(utf8.decoder).join().timeout(timeout);
+    final doc = XmlDocument.parse(text);
+
+    final fault =
+        doc.findAllElements('SOAP-ENV:Fault').firstOrNull ??
+        doc.findAllElements('s:Fault').firstOrNull;
+    if (fault != null) {
+      final textNode =
+          fault.findAllElements('SOAP-ENV:Text').firstOrNull?.innerText ??
+          fault.findAllElements('s:text').firstOrNull?.innerText ??
+          'Erreur ONVIF';
+      final subcode = fault.innerText;
+      if (subcode.contains('NotAuthorized') ||
+          subcode.contains('SenderNotAuthorized')) {
+        throw OnvifException(
+          'Identifiants refusés par la caméra (authentification ONVIF).',
+        );
+      }
+      throw OnvifException('Caméra ONVIF : $textNode');
+    }
+    return doc.rootElement;
+  } on SocketException {
+    throw OnvifException(
+      'Appareil injoignable (${uri.host}) — vérifiez le réseau.',
+    );
+  } on TimeoutException {
+    throw OnvifException('Délai dépassé — l\'appareil ne répond pas.');
+  } on XmlException {
+    throw OnvifException('Réponse illisible (pas un appareil ONVIF ?).');
+  } finally {
+    client.close();
+  }
+}
+
+/// Parse une réponse CreatePullPointSubscription (exposé aux tests).
+@visibleForTesting
+PullPointSubscription parsePullPointSubscriptionForTest(String xml) {
+  final doc = XmlDocument.parse(xml);
+
+  String url = '';
+  DateTime? currentTime;
+  DateTime? terminationTime;
+
+  // Les préfixes varient selon les firmwares (wsa:, wsa5:, sans préfixe) :
+  // on cible les noms LOCAUX.
+  for (final e in doc.descendants.whereType<XmlElement>()) {
+    final local = e.name.local;
+    if (local == 'Address' && url.isEmpty) {
+      url = e.innerText.trim();
+    } else if (local == 'CurrentTime' && currentTime == null) {
+      currentTime = DateTime.tryParse(e.innerText.trim());
+    } else if (local == 'TerminationTime' && terminationTime == null) {
+      terminationTime = DateTime.tryParse(e.innerText.trim());
+    }
+  }
+
+  if (url.isEmpty) {
+    throw OnvifException(
+      'Souscription refusée — pas d\'adresse de pull point dans la réponse.',
+    );
+  }
+  return PullPointSubscription(
+    url: url,
+    currentTime: currentTime,
+    terminationTime: terminationTime,
+  );
+}
+
+/// Parse une réponse PullMessages en événements (exposé aux tests).
+@visibleForTesting
+List<OnvifEvent> parseOnvifEventsForTest(String xml) {
+  final doc = XmlDocument.parse(xml);
+  final events = <OnvifEvent>[];
+
+  for (final msg in doc.descendants.whereType<XmlElement>().where(
+    (e) => e.name.local == 'NotificationMessage',
+  )) {
+    // Sujet (ex. tns1:VideoAnalytics/MotionAlarm).
+    String topic = '';
+    for (final t in msg.descendants.whereType<XmlElement>()) {
+      if (t.name.local == 'Topic') {
+        topic = t.innerText.trim();
+        break;
+      }
+    }
+
+    // Message interne tt:Message (porteur des données) — le wrapper
+    // wsnt:Message porte le même nom local : on prend celui qui possède
+    // l'attribut UtcTime ou des enfants Source/Data.
+    XmlElement? inner;
+    final candidates = msg.descendants
+        .whereType<XmlElement>()
+        .where((e) => e.name.local == 'Message')
+        .toList();
+    for (final c in candidates) {
+      final hasUtc = c.attributes.any((a) => a.name.local == 'UtcTime');
+      final hasPayload = c.children.whereType<XmlElement>().any(
+        (child) => child.name.local == 'Source' || child.name.local == 'Data',
+      );
+      if (hasUtc || hasPayload) {
+        inner = c;
+        break;
+      }
+    }
+    inner ??= candidates.isEmpty ? null : candidates.last;
+
+    DateTime? timestamp;
+    String? operation;
+    final source = <String, String>{};
+    final data = <String, String>{};
+
+    if (inner != null) {
+      for (final a in inner.attributes) {
+        if (a.name.local == 'UtcTime') {
+          timestamp = DateTime.tryParse(a.value);
+        } else if (a.name.local == 'PropertyOperation') {
+          operation = a.value;
+        }
+      }
+      for (final container in inner.children.whereType<XmlElement>()) {
+        final isSource = container.name.local == 'Source';
+        final isData = container.name.local == 'Data';
+        if (!isSource && !isData) continue;
+        for (final item in container.descendants.whereType<XmlElement>()) {
+          // Deux formes coexistent sur le terrain : le schéma canonique
+          // ONVIF (`tt:SimpleItem`, majoritaire — Hikvision/Dahua) et la
+          // variante `tt:SimpleItemValue` de certains firmwares. Les deux
+          // portent Name/Value en attributs.
+          final local = item.name.local;
+          if (local != 'SimpleItem' && local != 'SimpleItemValue') continue;
+          final name = item.getAttribute('Name');
+          final value = item.getAttribute('Value');
+          if (name == null) continue;
+          (isSource ? source : data)[name] = value ?? '';
+        }
+      }
+    }
+
+    events.add(
+      OnvifEvent(
+        topic: topic,
+        timestamp: timestamp,
+        propertyOperation: operation,
+        source: source,
+        data: data,
+      ),
+    );
+  }
+  return events;
+}

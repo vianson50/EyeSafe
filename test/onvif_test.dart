@@ -177,6 +177,201 @@ void main() {
     });
   });
 
+  group('Événements ONVIF — PullPoint', () {
+    test('formatXsDuration produit des durées valides', () {
+      expect(formatXsDuration(Duration.zero), 'PT0S');
+      expect(formatXsDuration(const Duration(seconds: 5)), 'PT5S');
+      expect(formatXsDuration(const Duration(seconds: 59)), 'PT59S');
+      expect(formatXsDuration(const Duration(minutes: 1)), 'PT1M');
+      expect(formatXsDuration(const Duration(seconds: 90)), 'PT1M30S');
+      expect(
+        formatXsDuration(const Duration(minutes: 2, seconds: 5)),
+        'PT2M5S',
+      );
+    });
+
+    test('parse une souscription (adresse + expiration)', () {
+      const xml = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+            xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2">
+ <s:Body>
+  <tev:CreatePullPointSubscriptionResponse
+      xmlns:tev="http://www.onvif.org/ver10/events/wsdl">
+   <wsnt:SubscriptionReference>
+    <wsa:Address xmlns:wsa="http://www.w3.org/2005/08/addressing">
+      http://192.168.1.64:80/onvif/event_service/4f7e8d21-0011
+    </wsa:Address>
+   </wsnt:SubscriptionReference>
+   <wsnt:CurrentTime>2026-09-22T12:00:00Z</wsnt:CurrentTime>
+   <wsnt:TerminationTime>2026-09-22T12:01:00Z</wsnt:TerminationTime>
+  </tev:CreatePullPointSubscriptionResponse>
+ </s:Body>
+</s:Envelope>
+''';
+      final sub = parsePullPointSubscriptionForTest(xml);
+      expect(
+        sub.url,
+        'http://192.168.1.64:80/onvif/event_service/4f7e8d21-0011',
+      );
+      expect(sub.terminationTime, DateTime.utc(2026, 9, 22, 12, 1));
+      expect(sub.currentTime, DateTime.utc(2026, 9, 22, 12));
+    });
+
+    test('parse une réponse PullMessages avec alarme de mouvement', () {
+      const xml = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+            xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2"
+            xmlns:tt="http://www.onvif.org/ver10/schema">
+ <s:Body>
+  <tev:PullMessagesResponse
+      xmlns:tev="http://www.onvif.org/ver10/events/wsdl">
+   <tev:CurrentTime>2026-09-22T12:00:30Z</tev:CurrentTime>
+   <tev:TerminationTime>2026-09-22T12:01:29Z</tev:TerminationTime>
+   <wsnt:NotificationMessage>
+    <wsnt:Topic Dialect="http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet">tns1:VideoAnalytics/MotionAlarm</wsnt:Topic>
+    <wsnt:Message>
+     <tt:Message UtcTime="2026-09-22T12:00:29.789Z" PropertyOperation="Changed">
+      <tt:Source>
+       <tt:SimpleItem Name="VideoSourceConfiguration" Value="1"/>
+       <tt:SimpleItem Name="VideoAnalyticsConfiguration" Value="1"/>
+      </tt:Source>
+      <tt:Data>
+       <tt:SimpleItem Name="State" Value="true"/>
+      </tt:Data>
+     </tt:Message>
+    </wsnt:Message>
+   </wsnt:NotificationMessage>
+  </tev:PullMessagesResponse>
+ </s:Body>
+</s:Envelope>
+''';
+      final events = parseOnvifEventsForTest(xml);
+      expect(events, hasLength(1));
+
+      final e = events.first;
+      expect(e.topic, 'tns1:VideoAnalytics/MotionAlarm');
+      expect(e.isMotionActive, isTrue);
+      expect(e.propertyOperation, 'Changed');
+      expect(e.timestamp, isNotNull);
+      expect(e.source['VideoSourceConfiguration'], '1');
+      expect(e.data['State'], 'true');
+    });
+
+    test('plusieurs événements et fin de mouvement (State=false)', () {
+      const xml = '''
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+            xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2"
+            xmlns:tt="http://www.onvif.org/ver10/schema">
+ <s:Body>
+  <tev:PullMessagesResponse xmlns:tev="http://www.onvif.org/ver10/events/wsdl">
+   <wsnt:NotificationMessage>
+    <wsnt:Topic>tns1:VideoAnalytics/MotionAlarm</wsnt:Topic>
+    <wsnt:Message><tt:Message UtcTime="2026-09-22T12:00:31Z" PropertyOperation="Changed">
+     <tt:Data><tt:SimpleItem Name="State" Value="false"/></tt:Data>
+    </tt:Message></wsnt:Message>
+   </wsnt:NotificationMessage>
+   <wsnt:NotificationMessage>
+    <wsnt:Topic>tns1:AudioAnalytics/AudioDetected</wsnt:Topic>
+    <wsnt:Message><tt:Message UtcTime="2026-09-22T12:00:32Z" PropertyOperation="Changed">
+     <tt:Data><tt:SimpleItem Name="State" Value="true"/></tt:Data>
+    </tt:Message></wsnt:Message>
+   </wsnt:NotificationMessage>
+  </tev:PullMessagesResponse>
+ </s:Body>
+</s:Envelope>
+''';
+      final events = parseOnvifEventsForTest(xml);
+      expect(events, hasLength(2));
+      // Fin de mouvement → alarme inactive.
+      expect(events.first.isMotionActive, isFalse);
+      // Audio détecté : autre sujet, données présentes.
+      expect(events.last.topic, contains('AudioDetected'));
+      expect(events.last.data['State'], 'true');
+    });
+
+    test('parse la forme SimpleItemValue / IsMotion (variante firmware)', () {
+      // Charge réelle signalée : certains firmwares encapsulent les items
+      // en `tt:SimpleItemValue` et nomment le mouvement `IsMotion`
+      // (vs `SimpleItem`/`State` du schéma canonique).
+      const xml = '''
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+            xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2"
+            xmlns:tt="http://www.onvif.org/ver10/schema">
+ <s:Body>
+  <tev:PullMessagesResponse xmlns:tev="http://www.onvif.org/ver10/events/wsdl">
+   <wsnt:NotificationMessage>
+    <wsnt:Topic>tns1:VideoAnalytics/Motion</wsnt:Topic>
+    <wsnt:Message>
+     <tt:Message UtcTime="2026-09-22T14:32:11Z">
+      <tt:Source>
+       <tt:SimpleItemValue Name="VideoSourceConfigurationToken" Value="vsc1"/>
+      </tt:Source>
+      <tt:Data>
+       <tt:SimpleItemValue Name="IsMotion" Value="true"/>
+      </tt:Data>
+     </tt:Message>
+    </wsnt:Message>
+   </wsnt:NotificationMessage>
+  </tev:PullMessagesResponse>
+ </s:Body>
+</s:Envelope>
+''';
+      final events = parseOnvifEventsForTest(xml);
+      expect(events, hasLength(1));
+
+      final e = events.first;
+      expect(e.isMotionActive, isTrue);
+      expect(e.data['IsMotion'], 'true');
+      expect(e.source['VideoSourceConfigurationToken'], 'vsc1');
+      expect(e.timestamp, DateTime.utc(2026, 9, 22, 14, 32, 11));
+    });
+
+    test('sujet hiérarchique + variante Axis (IsActive=yes)', () {
+      const xml = '''
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+            xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2"
+            xmlns:tt="http://www.onvif.org/ver10/schema">
+ <s:Body>
+  <tev:PullMessagesResponse xmlns:tev="http://www.onvif.org/ver10/events/wsdl">
+   <wsnt:NotificationMessage>
+    <wsnt:Topic>tns1:RuleEngine/CellMotionDetectorAlarm/Motion</wsnt:Topic>
+    <wsnt:Message>
+     <tt:Message UtcTime="2026-09-22T14:32:11Z" PropertyOperation="Changed">
+      <tt:Data>
+       <tt:SimpleItem Name="IsActive" Value="yes"/>
+      </tt:Data>
+     </tt:Message>
+    </wsnt:Message>
+   </wsnt:NotificationMessage>
+  </tev:PullMessagesResponse>
+ </s:Body>
+</s:Envelope>
+''';
+      final e = parseOnvifEventsForTest(xml).single;
+      expect(e.topicNamespace, 'tns1:');
+      expect(e.topicSegments, [
+        'RuleEngine',
+        'CellMotionDetectorAlarm',
+        'Motion',
+      ]);
+      // Axis : IsActive=yes (pas true) → mouvement actif quand même.
+      expect(e.isMotionActive, isTrue);
+    });
+
+    test('réponse sans événement → liste vide (long-poll expiré)', () {
+      const xml = '''
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope">
+ <s:Body>
+  <tev:PullMessagesResponse xmlns:tev="http://www.onvif.org/ver10/events/wsdl"/>
+ </s:Body>
+</s:Envelope>
+''';
+      expect(parseOnvifEventsForTest(xml), isEmpty);
+    });
+  });
+
   group('parsing WS-Discovery ProbeMatch', () {
     test('extrait XAddrs et le nom depuis les scopes', () {
       const probeMatch = '''
