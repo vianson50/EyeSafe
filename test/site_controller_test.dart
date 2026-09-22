@@ -446,6 +446,26 @@ void main() {
     });
 
     test(
+      'persistance : SEULS les critiques vont en base (normalisation topic)',
+      () {
+        // Le topic ONVIF perd son namespace au stockage.
+        expect(
+          SiteController.normalizeTopicForTest('tns1:Device/TamperDetection'),
+          'Device/TamperDetection',
+        );
+        expect(
+          SiteController.normalizeTopicForTest('tns1:RuleEngine/FieldDetector'),
+          'RuleEngine/FieldDetector',
+        );
+        // Sans namespace → inchangé.
+        expect(
+          SiteController.normalizeTopicForTest('Device/TamperDetection'),
+          'Device/TamperDetection',
+        );
+      },
+    );
+
+    test(
       'connectNvr distant crée des caméras via IP publique/domaine',
       () async {
         final controller = SiteController.demoForTest();

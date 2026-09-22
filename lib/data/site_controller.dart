@@ -89,6 +89,9 @@ class SiteController extends ChangeNotifier {
   ///     secondes → ignoré silencieusement.
   ///  2. **Priorisation** : intrusion/tamper/sabotage → alerte remontée
   ///     (isCritical) ; mouvement → historique seul.
+  ///  3. **Persistance** : les CRITIQUES uniquement sont écrits dans
+  ///     `camera_events` (Supabase) — le mouvement reste en mémoire
+  ///     (des milliers de lignes/jour sinon, même dédupliqué).
   ///
   /// Retourne true si l'événement a été enregistré (non dédupliqué).
   bool recordEvent(Equipment camera, OnvifEvent event, {DateTime? now}) {
@@ -111,8 +114,58 @@ class SiteController extends ChangeNotifier {
       ),
       ...cameraEvents,
     ].take(_maxCameraEvents).toList();
+
+    // Persistance des critiques (fire-and-forget, jamais bloquant pour
+    // l'UI — si l'écriture échoue, l'événement reste visible en mémoire).
+    if (event.isCritical && _client != null && receivedAt == now) {
+      // receivedAt == now : horloge injectée = contexte TEST → on
+      // n'écrit pas en base depuis les tests.
+      unawaited(_persistCriticalEvent(camera, event, receivedAt));
+    }
+
     notifyListeners();
     return true;
+  }
+
+  /// Écrit un événement critique dans camera_events (migration 10) :
+  /// preuve horodatée consultable par le client et le technicien,
+  /// diffusée aux apps connectées via Supabase Realtime.
+  Future<void> _persistCriticalEvent(
+    Equipment camera,
+    OnvifEvent event,
+    DateTime at,
+  ) async {
+    final client = _client;
+    if (client == null) return;
+    try {
+      await client.from('camera_events').insert({
+        'equipment_id': camera.id,
+        'site_id': _siteId,
+        'event_time': at.toUtc().toIso8601String(),
+        'topic': _normalizeTopic(event.topic),
+        'source_token':
+            event.source['VideoSourceConfiguration'] ??
+            event.source['VideoSourceConfigurationToken'],
+        'payload': {
+          'source': event.source,
+          'data': event.data,
+          'property_operation': event.propertyOperation,
+        },
+        'confidence': double.tryParse(event.data['Confidence'] ?? ''),
+      });
+    } catch (e) {
+      debugPrint('persistCriticalEvent: $e (table camera_events absente ?)');
+    }
+  }
+
+  /// `tns1:Device/TamperDetection` → `Device/TamperDetection`
+  /// (le namespace ONVIF n'apporte rien au stockage — sujet stable).
+  @visibleForTesting
+  static String normalizeTopicForTest(String topic) => _normalizeTopic(topic);
+
+  static String _normalizeTopic(String topic) {
+    final i = topic.indexOf(':');
+    return i < 0 ? topic : topic.substring(i + 1);
   }
 
   /// Mouvement ACTIF sur cette caméra ? Basé sur les enregistrements
