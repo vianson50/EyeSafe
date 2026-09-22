@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Code with Rhythm - Music Streaming for Devs</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-highest": "#31353c",
+                        "on-secondary-fixed": "#001f26",
+                        "inverse-surface": "#dfe2eb",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "background": "#10141a",
+                        "error-container": "#93000a",
+                        "on-error": "#690005",
+                        "on-secondary": "#003640",
+                        "on-surface-variant": "#cbc3d7",
+                        "on-primary-fixed-variant": "#5516be",
+                        "on-tertiary-container": "#00311f",
+                        "error": "#ffb4ab",
+                        "secondary-fixed": "#acedff",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "surface-dim": "#10141a",
+                        "on-primary-fixed": "#23005c",
+                        "on-tertiary": "#003824",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "on-error-container": "#ffdad6",
+                        "on-background": "#dfe2eb",
+                        "surface": "#10141a",
+                        "surface-bright": "#353940",
+                        "secondary-container": "#03b5d3",
+                        "tertiary-fixed": "#6ffbbe",
+                        "surface-container": "#1c2026",
+                        "on-surface": "#dfe2eb",
+                        "primary": "#d0bcff",
+                        "surface-container-lowest": "#0a0e14",
+                        "inverse-on-surface": "#2d3137",
+                        "on-secondary-container": "#00424e",
+                        "on-tertiary-fixed": "#002113",
+                        "outline-variant": "#494454",
+                        "tertiary-container": "#00a572",
+                        "on-primary-container": "#340080",
+                        "surface-tint": "#d0bcff",
+                        "primary-container": "#a078ff",
+                        "surface-variant": "#31353c",
+                        "surface-container-low": "#181c22",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "primary-fixed-dim": "#d0bcff",
+                        "on-primary": "#3c0091",
+                        "surface-container-high": "#262a31",
+                        "inverse-primary": "#6d3bd7",
+                        "secondary": "#4cd7f6",
+                        "outline": "#958ea0",
+                        "tertiary": "#4edea3",
+                        "primary-fixed": "#e9ddff"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    spacing: {
+                        "container-max": "1440px",
+                        "gutter": "24px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "48px",
+                        "unit": "4px"
+                    },
+                    fontFamily: {
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "label-md": ["JetBrains Mono"],
+                        "headline-sm": ["Plus Jakarta Sans"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"],
+                        "body-lg": ["Plus Jakarta Sans"],
+                        "label-sm": ["JetBrains Mono"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "body-md": ["Plus Jakarta Sans"]
+                    },
+                    fontSize: {
+                        "headline-md": ["32px", { lineHeight: "1.2", letterSpacing: "-0.01em", fontWeight: "700" }],
+                        "label-md": ["14px", { lineHeight: "1.2", letterSpacing: "0.05em", fontWeight: "500" }],
+                        "headline-sm": ["24px", { lineHeight: "1.3", fontWeight: "600" }],
+                        "headline-lg-mobile": ["32px", { lineHeight: "1.1", fontWeight: "800" }],
+                        "body-lg": ["18px", { lineHeight: "1.6", fontWeight: "400" }],
+                        "label-sm": ["12px", { lineHeight: "1.2", letterSpacing: "0.05em", fontWeight: "500" }],
+                        "headline-lg": ["48px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "800" }],
+                        "body-md": ["16px", { lineHeight: "1.6", fontWeight: "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(22, 30, 46, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glow-hover:hover {
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
+            border-color: rgba(139, 92, 246, 0.5);
+        }
+        .bento-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .bento-card:hover {
+            transform: scale(1.02) perspective(1000px) rotateX(2deg) rotateY(-2deg);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #d0bcff, #4cd7f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* Terminal Animation Styles */
+        .terminal-container {
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden;
+        }
+        .terminal-line {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            width: 0;
+            animation: typing 2s steps(40, end) forwards;
+        }
+        .terminal-line:nth-child(1) { animation-delay: 0.5s; }
+        .terminal-line:nth-child(2) { animation-delay: 2.5s; }
+        .terminal-line:nth-child(3) { animation-delay: 4.5s; }
+        .terminal-line:nth-child(4) { animation-delay: 6.5s; }
+        
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 1.2em;
+            background-color: #4cd7f6;
+            animation: blink 1s step-end infinite;
+            vertical-align: bottom;
+            margin-left: 4px;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        
+        /* Animated Background Gradients */
+        .bg-gradient-animate {
+            background: linear-gradient(-45deg, #0D1117, #1c2026, #23005c, #004e5c);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen overflow-x-hidden font-body-md bg-gradient-animate">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl border-b border-white/10 shadow-sm flex justify-between items-center px-gutter py-4">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md font-extrabold tracking-tighter text-primary">SYNTH_STACK</span>
+</div>
+<div class="hidden md:flex gap-8 font-headline-sm text-headline-sm text-primary font-bold">
+<a class="active:scale-95 transition-transform hover:text-primary transition-colors duration-200" href="#">Home</a>
+<a class="text-on-surface-variant active:scale-95 transition-transform hover:text-primary transition-colors duration-200" href="#">Explore</a>
+<a class="text-on-surface-variant active:scale-95 transition-transform hover:text-primary transition-colors duration-200" href="#">Library</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors active:scale-95">
+<span class="material-symbols-outlined">terminal</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors active:scale-95">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</nav>
+<!-- SideNavBar (Hidden on Mobile, Visible on md+) -->
+<aside class="hidden md:flex flex-col h-full p-4 pt-24 fixed left-0 top-0 w-64 z-40 bg-surface-container/60 backdrop-blur-2xl border-r border-white/5 shadow-2xl">
+<div class="flex flex-col gap-6 flex-1">
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-tertiary border-r-2 border-tertiary bg-tertiary/10 font-label-md text-label-md hover:translate-x-1 duration-300" href="#">
+<span class="material-symbols-outlined">home</span>
+                    Home
+                </a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all font-label-md text-label-md hover:translate-x-1 duration-300" href="#">
+<span class="material-symbols-outlined">explore</span>
+                    Explore
+                </a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all font-label-md text-label-md hover:translate-x-1 duration-300" href="#">
+<span class="material-symbols-outlined">library_music</span>
+                    Library
+                </a>
+</nav>
+<button class="mt-8 mx-4 bg-primary text-on-primary font-label-md text-label-md py-3 rounded-lg hover:bg-primary-container transition-colors shadow-[0_0_15px_rgba(208,188,255,0.4)]">
+                New Project
+            </button>
+</div>
+<div class="mt-auto flex flex-col gap-2 border-t border-white/10 pt-4">
+<div class="flex items-center gap-3 px-4 mb-4">
+<div class="w-10 h-10 rounded-full bg-surface-variant overflow-hidden border border-white/20">
+<img alt="Developer Profile" class="w-full h-full object-cover" data-alt="A minimalist, cyberpunk-inspired developer avatar icon, featuring geometric shapes in neon cyan and deep violet against a dark background, representing a professional audio developer profile." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0x3RbL4u_f6zQbHrMCaGpEiZijZq2Mfb71KuVBV-0UL8V5cedeOfr4EDKBtNinYP7b3DqZZbtCGJevCru3GIBzDU8WfFMfCO36PokZqwVB8RYGVgSKDV8Vn4geecbeXvdMTvM1I0_iTr3iIDNvPiLlS2ITGtuImPnm9KXg26-3I_87PF4qGtbebFbXzjGtGzWSjA7AqW7KixoGyMz_XWkVUPIsvbWlfvxEGjAT_ymnmiZihhSyhL1"/>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Root_User</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Pro Audio Dev</p>
+</div>
+</div>
+<a class="flex items-center gap-4 px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all font-label-md text-label-md hover:translate-x-1 duration-300" href="#">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </a>
+<a class="flex items-center gap-4 px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all font-label-md text-label-md hover:translate-x-1 duration-300" href="#">
+<span class="material-symbols-outlined">description</span>
+                Docs
+            </a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="pt-24 pb-32 md:pl-64 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto relative z-10">
+<!-- Hero Section: Asymmetric 2-Column -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-gutter mb-16 items-center min-h-[60vh]">
+<!-- Left: Typography & CTA -->
+<div class="lg:col-span-5 flex flex-col gap-6 z-20">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
+<span class="gradient-text">Code with Rhythm.</span><br/>
+                    Compile in Style.
+                </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-md">
+                    High-fidelity audio streaming architected for modern development workflows. Seamlessly integrating Laravel/AdonisJS backends with cross-platform Flutter experiences.
+                </p>
+<div class="flex items-center gap-4 mt-4">
+<button class="bg-primary text-on-primary font-label-md text-label-md px-8 py-4 rounded-lg flex items-center gap-2 hover:scale-105 transition-transform shadow-[0_0_20px_rgba(208,188,255,0.5)]">
+<span class="material-symbols-outlined font-variation-settings-'FILL'-1">play_arrow</span>
+                        J'écoute maintenant
+                    </button>
+<div class="flex gap-3 pl-4 border-l border-white/10">
+<button class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-on-surface-variant hover:text-secondary glow-hover transition-all">
+<span class="material-symbols-outlined">code</span>
+</button>
+<button class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-on-surface-variant hover:text-secondary glow-hover transition-all">
+<span class="material-symbols-outlined">share</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right: Interactive Visual (Terminal Card) -->
+<div class="lg:col-span-7 relative h-[400px] w-full rounded-2xl glass-panel bento-card p-1 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden">
+<!-- Mac-style window controls -->
+<div class="bg-surface-container-highest px-4 py-3 border-b border-white/10 flex items-center gap-2 rounded-t-xl">
+<div class="w-3 h-3 rounded-full bg-error"></div>
+<div class="w-3 h-3 rounded-full bg-[#f59e0b]"></div>
+<div class="w-3 h-3 rounded-full bg-tertiary"></div>
+<span class="ml-4 font-label-sm text-label-sm text-on-surface-variant">synth_audio_engine.sh</span>
+</div>
+<div class="p-6 h-full bg-[#0a0e14]/90 terminal-container font-label-md text-label-md text-secondary relative">
+<!-- Subtle background logo -->
+<div class="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+<span class="material-symbols-outlined text-[200px]">equalizer</span>
+</div>
+<div class="relative z-10 text-tertiary">
+<span class="terminal-line">&gt; Initializing SynthStack Audio Kernel... [OK]</span>
+<span class="terminal-line text-on-surface-variant">&gt; Loading FLAC decoder modules... [DONE]</span>
+<span class="terminal-line text-secondary">&gt; Connecting to Laravel API endpoint... [200 OK]</span>
+<span class="terminal-line text-primary">&gt; Starting playback: "Deep Focus Mix 04"<span class="cursor"></span></span>
+</div>
+<!-- Decorative EQ bars -->
+<div class="absolute bottom-6 left-6 flex items-end gap-1 h-16 opacity-50">
+<div class="w-2 bg-tertiary rounded-t-sm h-1/3 animate-[pulse_1s_ease-in-out_infinite]"></div>
+<div class="w-2 bg-secondary rounded-t-sm h-full animate-[pulse_1.2s_ease-in-out_infinite]"></div>
+<div class="w-2 bg-primary rounded-t-sm h-2/3 animate-[pulse_0.8s_ease-in-out_infinite]"></div>
+<div class="w-2 bg-tertiary rounded-t-sm h-1/2 animate-[pulse_1.5s_ease-in-out_infinite]"></div>
+<div class="w-2 bg-secondary rounded-t-sm h-4/5 animate-[pulse_0.9s_ease-in-out_infinite]"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Stack / Compétences Bento Grid -->
+<section class="mb-20">
+<div class="flex items-center gap-4 mb-8">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Tech Stack Architecture</h2>
+<div class="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-[200px]">
+<!-- Bento Box 1: Backend (Spans 2 cols) -->
+<div class="glass-panel rounded-2xl p-6 bento-card glow-hover md:col-span-2 relative overflow-hidden group">
+<div class="absolute -right-10 -top-10 text-surface-container opacity-20 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-[150px]">database</span>
+</div>
+<div class="relative z-10 h-full flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-2">
+<span class="material-symbols-outlined text-primary text-3xl">api</span>
+<span class="px-2 py-1 rounded-md border border-primary text-primary font-label-sm text-label-sm uppercase tracking-wider bg-primary/10">REST / GraphQL</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Laravel / AdonisJS</h3>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">High-performance backend infrastructure managing metadata, user state, and low-latency API delivery.</p>
+</div>
+</div>
+<!-- Bento Box 2: Mobile -->
+<div class="glass-panel rounded-2xl p-6 bento-card glow-hover relative overflow-hidden group">
+<div class="absolute -right-5 -bottom-5 text-surface-container opacity-20 group-hover:rotate-12 transition-transform duration-500">
+<span class="material-symbols-outlined text-[100px]">smartphone</span>
+</div>
+<div class="relative z-10 h-full flex flex-col justify-between">
+<div>
+<span class="material-symbols-outlined text-secondary text-3xl mb-2 block">flutter_dash</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Flutter</h3>
+</div>
+<div>
+<span class="inline-block px-2 py-1 rounded-md border border-secondary text-secondary font-label-sm text-label-sm uppercase bg-secondary/10 mb-2">Cross-Platform</span>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">Native performance audio engine integration.</p>
+</div>
+</div>
+</div>
+<!-- Bento Box 3: Audio Quality -->
+<div class="glass-panel rounded-2xl p-6 bento-card glow-hover relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-tertiary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+<div class="relative z-10 h-full flex flex-col justify-between items-center text-center">
+<span class="material-symbols-outlined text-tertiary text-4xl mt-4">high_quality</span>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Hi-Res Audio</h3>
+<div class="flex gap-2 justify-center mt-2">
+<span class="px-2 py-1 border border-tertiary text-tertiary font-label-sm text-label-sm bg-tertiary/10 rounded">FLAC</span>
+<span class="px-2 py-1 border border-tertiary text-tertiary font-label-sm text-label-sm bg-tertiary/10 rounded">ALAC</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bento Box 4: Current Status (Spans 2 cols, subtle gradient bg) -->
+<div class="glass-panel rounded-2xl p-6 bento-card glow-hover md:col-span-2 lg:col-span-4 bg-gradient-to-r from-surface-container-highest to-surface flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="w-16 h-16 rounded-xl bg-surface-lowest border border-white/10 overflow-hidden relative group">
+<!-- Abstract album art placeholder -->
+<div class="w-full h-full bg-cover bg-center group-hover:scale-110 transition-transform duration-500" data-alt="Abstract digital album artwork featuring dark synthwave aesthetics, glowing geometric vectors in cyan and purple, against a deeply textured dark background." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAS8X-JbdGvfYExGADSIs0FTB5Esu4MEAwqRHAO221RQh2vNZIAtuAucI-88AyY_PU9iOOER00zzfqxWCkuoBmE2Te5ky133-4QnPnCVH_NyBBaS5CO_Mgc_lHJzMQ8VR6V3qrt-6uIqskyR502CyEwNYv4JDQVXSO-_NerrN69kZQuYlSFcG9n6GiUwviM3cw4y93RQvb27j7NVSDRNnmFEYAx6kKdKOpVR6qkSJrY2pxeDrQByIJA')"></div>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<p class="font-label-sm text-label-sm text-tertiary uppercase tracking-widest">System Online</p>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mt-1">Streaming Telemetry Active</h3>
+</div>
+</div>
+<div class="hidden md:flex gap-6">
+<div class="text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Bitrate</p>
+<p class="font-label-md text-label-md text-secondary">1411 kbps</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Latency</p>
+<p class="font-label-md text-label-md text-tertiary">12ms</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-[80px] left-0 w-full z-40 h-20 bg-surface-container-highest/90 backdrop-blur-2xl border-t border-white/10 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] flex justify-between items-center px-margin-desktop transition-all duration-300 ease-out">
+<a class="flex flex-col items-center gap-1 text-tertiary scale-110 font-label-sm text-label-sm hover:text-secondary" href="#">
+<span class="material-symbols-outlined font-variation-settings-'FILL'-1">play_circle</span>
+            Play
+        </a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant font-label-sm text-label-sm hover:text-secondary" href="#">
+<span class="material-symbols-outlined">queue_music</span>
+            Queue
+        </a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant font-label-sm text-label-sm hover:text-secondary" href="#">
+<span class="material-symbols-outlined">tune</span>
+            Mixer
+        </a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant font-label-sm text-label-sm hover:text-secondary" href="#">
+<span class="material-symbols-outlined">speaker</span>
+            Output
+        </a>
+</nav>
+<!-- Persistent Mini-Player (Fixed at bottom) -->
+<div class="fixed bottom-0 left-0 w-full h-20 z-50 glass-panel border-t border-white/10 flex items-center justify-between px-4 md:px-gutter shadow-[0_-10px_40px_rgba(0,0,0,0.4)]">
+<!-- Track Info -->
+<div class="flex items-center gap-3 w-1/3">
+<div class="w-12 h-12 rounded bg-surface-lowest overflow-hidden">
+<img alt="Album Art" class="w-full h-full object-cover" data-alt="Minimalist dark mode album cover with a glowing neon purple wireframe grid and stark typography indicating a coding focus track." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYJ78hQXn3n-auIDlhtKMLffhLDHl9h1Vswx4a4JGCuZe6t8Cg7mCPeu6P23AxsT3gTU9M2MHfOrJ_8YYx3g8H36xMCIwFDO_yA7M_hnpIt4X_P31xVaXiHtOK68KNZIi1IiHfU6xw_xTLPwi7yN36YaZOkAOSJzRdo0ron3uQvzRmhZzVjXrrBMN39weIIHBhm49hZxfKY05IrOSCWjeW2idZtoO2bQT72-gdd7TBDXRobj5uM4lb"/>
+</div>
+<div class="hidden sm:block">
+<p class="font-label-md text-label-md text-on-surface leading-tight">Compile. Focus. Execute.</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Root_User / FLAC</p>
+</div>
+</div>
+<!-- Controls -->
+<div class="flex-1 flex flex-col items-center justify-center gap-1">
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-xl">skip_previous</span>
+</button>
+<!-- Neon Green Play Button -->
+<button class="w-10 h-10 rounded-full bg-tertiary text-on-tertiary flex items-center justify-center hover:scale-105 transition-transform shadow-[0_0_15px_rgba(78,222,163,0.4)]">
+<span class="material-symbols-outlined font-variation-settings-'FILL'-1">play_arrow</span>
+</button>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-xl">skip_next</span>
+</button>
+</div>
+<!-- Progress Bar -->
+<div class="w-full max-w-md flex items-center gap-2 hidden md:flex">
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[10px]">01:24</span>
+<div class="flex-1 h-1 bg-surface-container rounded-full overflow-hidden relative cursor-pointer group">
+<div class="absolute left-0 top-0 h-full bg-primary w-1/3 group-hover:bg-secondary transition-colors"></div>
+<div class="absolute left-1/3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[10px]">04:02</span>
+</div>
+</div>
+<!-- Utility (Volume/Options) -->
+<div class="w-1/3 flex justify-end items-center gap-4 hidden lg:flex">
+<span class="px-2 py-0.5 border border-secondary text-secondary font-label-sm text-label-sm text-[10px] rounded">192kHz/24bit</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">volume_up</span>
+<div class="w-20 h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-on-surface-variant w-3/4"></div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

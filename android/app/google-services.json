@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "730776008444",
+    "project_id": "eyesafe-ci",
+    "storage_bucket": "eyesafe-ci.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:730776008444:android:40dad7429c8243f937c979",
+        "android_client_info": {
+          "package_name": "ci.eyesafe.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbr3rUPGW4uHqOKYE1D1dpvZCRB4u6Px4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

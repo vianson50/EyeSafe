@@ -1,0 +1,10 @@
+# Génération des icônes Android/iOS à partir du logo EYESAFE.
+# Relancer après modification du logo :
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "Logo/securcam_logo.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  adaptive_icon_background: "#0D1727"
+  adaptive_icon_foreground: "Logo/securcam_logo.png"

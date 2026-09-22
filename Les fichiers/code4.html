@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Abonnements - SYNTH_STACK</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config injected from Style Guidance -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-highest": "#31353c",
+                    "on-secondary-fixed": "#001f26",
+                    "inverse-surface": "#dfe2eb",
+                    "tertiary-fixed-dim": "#4edea3",
+                    "background": "#10141a",
+                    "error-container": "#93000a",
+                    "on-error": "#690005",
+                    "on-secondary": "#003640",
+                    "on-surface-variant": "#cbc3d7",
+                    "on-primary-fixed-variant": "#5516be",
+                    "on-tertiary-container": "#00311f",
+                    "error": "#ffb4ab",
+                    "secondary-fixed": "#acedff",
+                    "on-tertiary-fixed-variant": "#005236",
+                    "surface-dim": "#10141a",
+                    "on-primary-fixed": "#23005c",
+                    "on-tertiary": "#003824",
+                    "on-secondary-fixed-variant": "#004e5c",
+                    "on-error-container": "#ffdad6",
+                    "on-background": "#dfe2eb",
+                    "surface": "#10141a",
+                    "surface-bright": "#353940",
+                    "secondary-container": "#03b5d3",
+                    "tertiary-fixed": "#6ffbbe",
+                    "surface-container": "#1c2026",
+                    "on-surface": "#dfe2eb",
+                    "primary": "#d0bcff",
+                    "surface-container-lowest": "#0a0e14",
+                    "inverse-on-surface": "#2d3137",
+                    "on-secondary-container": "#00424e",
+                    "on-tertiary-fixed": "#002113",
+                    "outline-variant": "#494454",
+                    "tertiary-container": "#00a572",
+                    "on-primary-container": "#340080",
+                    "surface-tint": "#d0bcff",
+                    "primary-container": "#a078ff",
+                    "surface-variant": "#31353c",
+                    "surface-container-low": "#181c22",
+                    "secondary-fixed-dim": "#4cd7f6",
+                    "primary-fixed-dim": "#d0bcff",
+                    "on-primary": "#3c0091",
+                    "surface-container-high": "#262a31",
+                    "inverse-primary": "#6d3bd7",
+                    "secondary": "#4cd7f6",
+                    "outline": "#958ea0",
+                    "tertiary": "#4edea3",
+                    "primary-fixed": "#e9ddff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-max": "1440px",
+                    "gutter": "24px",
+                    "margin-mobile": "16px",
+                    "margin-desktop": "48px",
+                    "unit": "4px"
+            },
+            "fontFamily": {
+                    "headline-md": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "label-md": [
+                            "JetBrains Mono"
+                    ],
+                    "headline-sm": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "headline-lg-mobile": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "body-lg": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "label-sm": [
+                            "JetBrains Mono"
+                    ],
+                    "headline-lg": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "body-md": [
+                            "Plus Jakarta Sans"
+                    ]
+            },
+            "fontSize": {
+                    "headline-md": [
+                            "32px",
+                            {
+                                    "lineHeight": "1.2",
+                                    "letterSpacing": "-0.01em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "label-md": [
+                            "14px",
+                            {
+                                    "lineHeight": "1.2",
+                                    "letterSpacing": "0.05em",
+                                    "fontWeight": "500"
+                            }
+                    ],
+                    "headline-sm": [
+                            "24px",
+                            {
+                                    "lineHeight": "1.3",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-lg-mobile": [
+                            "32px",
+                            {
+                                    "lineHeight": "1.1",
+                                    "fontWeight": "800"
+                            }
+                    ],
+                    "body-lg": [
+                            "18px",
+                            {
+                                    "lineHeight": "1.6",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "label-sm": [
+                            "12px",
+                            {
+                                    "lineHeight": "1.2",
+                                    "letterSpacing": "0.05em",
+                                    "fontWeight": "500"
+                            }
+                    ],
+                    "headline-lg": [
+                            "48px",
+                            {
+                                    "lineHeight": "1.1",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "800"
+                            }
+                    ],
+                    "body-md": [
+                            "16px",
+                            {
+                                    "lineHeight": "1.6",
+                                    "fontWeight": "400"
+                            }
+                    ]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        /* Base material symbols styling */
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 24
+        }
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #10141a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #31353c; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #494454; 
+        }
+        
+        /* Ambient Background Gradients */
+        .ambient-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .ambient-glow::before, .ambient-glow::after {
+            content: '';
+            position: absolute;
+            width: 800px;
+            height: 800px;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.15;
+            animation: float 20s infinite alternate ease-in-out;
+        }
+        .ambient-glow::before {
+            background: #d0bcff; /* primary */
+            top: -200px;
+            left: -200px;
+        }
+        .ambient-glow::after {
+            background: #4cd7f6; /* secondary */
+            bottom: -200px;
+            right: -200px;
+            animation-delay: -10s;
+        }
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(100px, 50px) scale(1.2); }
+        }
+        
+        /* Bento Card Hover Effect */
+        .bento-card {
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease;
+        }
+        .bento-card:hover {
+            transform: translateY(-4px) scale(1.02);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen relative selection:bg-primary/30 selection:text-primary overflow-x-hidden flex flex-col">
+<!-- Ambient Lighting Background -->
+<div class="ambient-glow"></div>
+<!-- Minimal Header (Transactional Page = No Nav Shell) -->
+<header class="w-full flex justify-between items-center px-margin-mobile md:px-margin-desktop py-6 relative z-10 border-b border-white/5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">graphic_eq</span>
+<span class="font-headline-md text-headline-md font-extrabold tracking-tighter text-on-surface">SYNTH<span class="text-primary">_STACK</span></span>
+</div>
+<a class="text-on-surface-variant hover:text-on-surface transition-colors font-label-md text-label-md flex items-center gap-2" href="#">
+            Retour
+            <span class="material-symbols-outlined text-sm">close</span>
+</a>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col items-center justify-start w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-12 md:py-20 relative z-10">
+<!-- Page Titles -->
+<div class="text-center mb-16 max-w-2xl mx-auto space-y-4">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
+                Passez au <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Niveau Supérieur</span>
+</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">
+                Des forfaits conçus pour les développeurs audio, les audiophiles et les fans inconditionnels. Qualité sans compromis.
+            </p>
+</div>
+<!-- Bento Grid Pricing Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter w-full max-w-[1200px]">
+<!-- Standard / Free Tier -->
+<div class="bento-card col-span-1 lg:col-span-4 bg-surface-container/40 backdrop-blur-xl border border-white/5 rounded-xl p-8 flex flex-col h-full relative overflow-hidden group">
+<!-- Top subtle accent -->
+<div class="absolute top-0 left-0 w-full h-1 bg-outline-variant/30 group-hover:bg-outline-variant transition-colors"></div>
+<div class="mb-8">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-2">Standard</h3>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">0€</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">/ mois</span>
+</div>
+</div>
+<div class="flex-grow">
+<ul class="space-y-4 font-body-md text-body-md text-on-surface-variant">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-on-surface opacity-70">check</span>
+<span>Qualité audio standard (128 kbps)</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-on-surface opacity-70">check</span>
+<span>Accès au catalogue de base</span>
+</li>
+<li class="flex items-start gap-3 opacity-50">
+<span class="material-symbols-outlined text-error">close</span>
+<span class="line-through decoration-white/20">Écoute hors-ligne</span>
+</li>
+<li class="flex items-start gap-3 opacity-50">
+<span class="material-symbols-outlined text-error">close</span>
+<span class="line-through decoration-white/20">Zéro publicité</span>
+</li>
+</ul>
+</div>
+<button class="mt-8 w-full py-4 rounded-lg font-label-md text-label-md uppercase border border-outline-variant text-on-surface hover:bg-surface-bright hover:border-surface-bright transition-all active:scale-95">
+                    Plan Actuel
+                </button>
+</div>
+<!-- Premium Tier (Highlighted) -->
+<div class="bento-card col-span-1 lg:col-span-4 bg-surface-container/80 backdrop-blur-2xl border border-primary/30 rounded-xl p-8 flex flex-col h-full relative overflow-hidden shadow-[0_0_40px_rgba(208,188,255,0.15)] group transform lg:scale-105 z-10">
+<!-- Glowing Top Accent -->
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-primary-container shadow-[0_0_10px_rgba(208,188,255,0.8)]"></div>
+<div class="absolute top-4 right-4">
+<span class="bg-primary/20 text-primary border border-primary/50 font-label-sm text-label-sm px-3 py-1 rounded-full uppercase tracking-wider">
+                        Recommandé
+                    </span>
+</div>
+<div class="mb-8 mt-4">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-2 flex items-center gap-2">
+                        Premium Hi-Fi
+                        <span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</h3>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">12.99€</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">/ mois</span>
+</div>
+</div>
+<div class="flex-grow">
+<ul class="space-y-4 font-body-md text-body-md text-on-surface">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary">check_circle</span>
+<span>Son Hi-Fi Lossless (FLAC 24-bit/192kHz)</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary">check_circle</span>
+<span>Zéro publicité, écoute ininterrompue</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary">check_circle</span>
+<span>Mode hors-ligne illimité</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary">check_circle</span>
+<span>Intégration directe avec vos DAWs</span>
+</li>
+</ul>
+</div>
+<button class="mt-8 w-full py-4 rounded-lg font-label-md text-label-md uppercase bg-primary text-on-primary hover:bg-primary-container transition-all shadow-[0_0_20px_rgba(208,188,255,0.3)] hover:shadow-[0_0_30px_rgba(208,188,255,0.5)] active:scale-95">
+                    Essayer gratuitement 30 jours
+                </button>
+</div>
+<!-- Artist Fan Club Tier -->
+<div class="bento-card col-span-1 lg:col-span-4 bg-surface-container/40 backdrop-blur-xl border border-white/5 hover:border-secondary/30 rounded-xl p-8 flex flex-col h-full relative overflow-hidden group">
+<!-- Top subtle accent -->
+<div class="absolute top-0 left-0 w-full h-1 bg-secondary/30 group-hover:bg-secondary transition-colors shadow-[0_0_10px_rgba(76,215,246,0)] group-hover:shadow-[0_0_10px_rgba(76,215,246,0.5)]"></div>
+<div class="mb-8">
+<h3 class="font-headline-sm text-headline-sm text-secondary mb-2 flex items-center gap-2">
+                        Fan Club
+                        <span class="material-symbols-outlined text-secondary text-xl">stars</span>
+</h3>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">19.99€</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">/ mois</span>
+</div>
+</div>
+<div class="flex-grow">
+<ul class="space-y-4 font-body-md text-body-md text-on-surface">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary">add</span>
+<span>Tout le contenu Premium inclus</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary">check</span>
+<span>Accès anticipé aux nouvelles sorties</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary">check</span>
+<span>Remises sur le merch et les vinyles</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary">check</span>
+<span>Badge exclusif sur votre profil</span>
+</li>
+</ul>
+</div>
+<button class="mt-8 w-full py-4 rounded-lg font-label-md text-label-md uppercase bg-secondary/10 text-secondary border border-secondary hover:bg-secondary hover:text-on-secondary transition-all shadow-[0_0_15px_rgba(76,215,246,0.1)] hover:shadow-[0_0_25px_rgba(76,215,246,0.4)] active:scale-95">
+                    Acheter l'album
+                </button>
+</div>
+</div>
+<!-- Features Bento Grid Breakdown -->
+<div class="w-full max-w-[1200px] mt-16 lg:mt-24">
+<h2 class="font-headline-sm text-headline-sm text-on-surface mb-8 text-center">Inclus dans les abonnements payants</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Feature 1: Hi-Fi -->
+<div class="bg-surface-container-low/50 backdrop-blur-md rounded-xl p-6 border border-white/5 flex flex-col items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">equalizer</span>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface uppercase tracking-wider mb-2">Audio Hi-Fi Lossless</h4>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">
+                            Vivez la musique exactement comme l'artiste l'a conçue en studio. Prise en charge des formats FLAC jusqu'à 24-bit/192kHz pour une clarté absolue.
+                        </p>
+</div>
+</div>
+<!-- Feature 2: Offline -->
+<div class="bg-surface-container-low/50 backdrop-blur-md rounded-xl p-6 border border-white/5 flex flex-col items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">cloud_download</span>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface uppercase tracking-wider mb-2">Mode Hors-Ligne</h4>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">
+                            Téléchargez vos pistes, albums et samples directement sur votre appareil. Votre workflow ou votre écoute ne s'arrête jamais, même sans réseau.
+                        </p>
+</div>
+</div>
+<!-- Feature 3: No Ads -->
+<div class="bg-surface-container-low/50 backdrop-blur-md rounded-xl p-6 border border-white/5 flex flex-col items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-tertiary/10 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">block</span>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface uppercase tracking-wider mb-2">Zéro Publicité</h4>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">
+                            Plongez dans l'immersion totale. Aucune interruption audio, aucune bannière intrusive sur l'interface. Seulement vous et le son.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Trust / Footer mini -->
+<div class="mt-24 text-center pb-12">
+<p class="font-label-sm text-label-sm text-on-surface-variant opacity-60">
+                L'abonnement se renouvelle automatiquement. Annulable à tout moment dans les paramètres de votre compte. <br/>
+                Voir les <a class="underline hover:text-on-surface" href="#">Conditions Générales de Vente</a>.
+            </p>
+</div>
+</main>
+</body></html>
