@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -59,6 +59,77 @@ class SiteController extends ChangeNotifier {
 
   /// Identifiant du site affiché.
   String? get activeSiteId => _siteId;
+
+  // ── Événements caméras temps réel (ONVIF PullPoint) ──
+  /// Un poller par caméra ONVIF connectée — voir [CameraEventPoller].
+  final Map<String, CameraEventPoller> _eventPollers = {};
+
+  /// Derniers événements reçus (toutes caméras), plus récents d'abord.
+  List<CameraEventRecord> cameraEvents = const [];
+  static const _maxCameraEvents = 100;
+  static const _motionGracePeriod = Duration(seconds: 4);
+
+  /// Environnement de test → pas de boucles réseau/timers (les tests
+  /// widget cramperaient sur des timers pendants).
+  static bool get _eventsPollingDisabled =>
+      !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+
+  /// Enregistre un événement caméra (appelé par les pollers) : historique
+  /// borné + notification UI (mosaïque, dashboard…).
+  void recordEvent(Equipment camera, OnvifEvent event) {
+    cameraEvents = <CameraEventRecord>[
+      CameraEventRecord(
+        cameraId: camera.id,
+        cameraName: camera.name,
+        event: event,
+        receivedAt: DateTime.now(),
+      ),
+      ...cameraEvents,
+    ].take(_maxCameraEvents).toList();
+    notifyListeners();
+  }
+
+  /// Mouvement ACTIF sur cette caméra ? (dernier événement = mouvement,
+  /// reçu il y a moins de 4 s — évite le clignotement sur micro-pauses).
+  bool isMotionActive(String cameraId) {
+    for (final r in cameraEvents) {
+      if (r.cameraId != cameraId) continue;
+      if (DateTime.now().difference(r.receivedAt) > _motionGracePeriod) {
+        return false; // dernier événement trop vieux
+      }
+      return r.event.isMotionActive;
+    }
+    return false;
+  }
+
+  /// Synchronise les pollers avec l'inventaire : démarre un poller par
+  /// caméra ONVIF nouvelle, arrête ceux des caméras retirées.
+  void _syncEventPollers() {
+    if (_eventsPollingDisabled) return;
+
+    _eventPollers.removeWhere((id, poller) {
+      if (equipment.any((e) => e.id == id)) return false;
+      unawaited(poller.stop());
+      return true;
+    });
+
+    for (final cam in equipment) {
+      if (cam.category != EquipmentCategory.camera) continue;
+      if (_eventPollers.containsKey(cam.id)) continue;
+      final poller = CameraEventPoller(camera: cam, controller: this);
+      if (!poller.isSupported) continue; // relais/cloud/URL sans creds
+      _eventPollers[cam.id] = poller;
+      unawaited(poller.start());
+    }
+  }
+
+  /// Arrête tous les pollers (changement de site / dispose).
+  void stopEventPollers() {
+    for (final p in _eventPollers.values) {
+      unawaited(p.stop());
+    }
+    _eventPollers.clear();
+  }
 
   /// Ordonnanceur de bande passante de la mosaïque (flux live limités,
   /// snapshots périodiques, dégradation automatique sur congestion).
@@ -326,6 +397,7 @@ class SiteController extends ChangeNotifier {
         .eq('site_id', _siteId!)
         .order('name');
     equipment = rows.map(Equipment.fromDb).toList();
+    _syncEventPollers();
   }
 
   Future<void> _loadTickets() async {
@@ -555,7 +627,7 @@ class SiteController extends ChangeNotifier {
         .first;
 
     if (_client == null) {
-      // Mode démo : ajout local.
+      // Mode démo : ajout local (+ pollers d'événements).
       tickets = List.of(tickets)
         ..insert(
           0,
@@ -569,6 +641,7 @@ class SiteController extends ChangeNotifier {
             hasPhoto: photoBytes != null,
           ),
         );
+      _syncEventPollers();
       notifyListeners();
       return null;
     }
@@ -701,7 +774,7 @@ class SiteController extends ChangeNotifier {
     final created = List<int>.generate(channels, (i) => i + 1);
 
     if (_client == null) {
-      // Mode démo : ajout local.
+      // Mode démo : ajout local (+ pollers d'événements).
       equipment = [
         ...equipment,
         ...created.map(
@@ -724,6 +797,7 @@ class SiteController extends ChangeNotifier {
           ),
         ),
       ];
+      _syncEventPollers();
       notifyListeners();
       return null;
     }
@@ -877,7 +951,7 @@ class SiteController extends ChangeNotifier {
     final deviceLabel = device.host;
 
     if (_client == null) {
-      // Mode démo : ajout local.
+      // Mode démo : ajout local (+ pollers d'événements).
       equipment = [
         ...equipment,
         ...resolved.map(
@@ -900,6 +974,7 @@ class SiteController extends ChangeNotifier {
           ),
         ),
       ];
+      _syncEventPollers();
       notifyListeners();
       return null;
     }
@@ -954,7 +1029,7 @@ class SiteController extends ChangeNotifier {
     final location = locationLabel ?? 'Relais $serverLabel';
 
     if (_client == null) {
-      // Mode démo : ajout local.
+      // Mode démo : ajout local (+ pollers d'événements).
       equipment = [
         ...equipment,
         ...streams.map(
@@ -970,6 +1045,7 @@ class SiteController extends ChangeNotifier {
           ),
         ),
       ];
+      _syncEventPollers();
       notifyListeners();
       return null;
     }
@@ -1088,7 +1164,7 @@ class SiteController extends ChangeNotifier {
     }
 
     if (_client == null) {
-      // Mode démo : ajout local.
+      // Mode démo : ajout local (+ pollers d'événements).
       equipment = [
         ...equipment,
         ...channels.map(
@@ -1109,6 +1185,7 @@ class SiteController extends ChangeNotifier {
           ),
         ),
       ];
+      _syncEventPollers();
       notifyListeners();
       if (motionDetection && brand == 'Hikvision') {
         await _applyMotionBestEffort(
@@ -1232,6 +1309,7 @@ class SiteController extends ChangeNotifier {
     if (_client == null) {
       // Mode démo : suppression locale.
       equipment = equipment.where((e) => e.id != item.id).toList();
+      _syncEventPollers();
       notifyListeners();
       return null;
     }
@@ -1375,6 +1453,7 @@ class SiteController extends ChangeNotifier {
 
   @override
   void dispose() {
+    stopEventPollers();
     final channel = _channel;
     final client = _client;
     if (channel != null && client != null) {
@@ -1383,5 +1462,192 @@ class SiteController extends ChangeNotifier {
     }
     _channel = null;
     super.dispose();
+  }
+}
+
+/// Événement caméra centralisé dans [SiteController] : l'alarme ONVIF
+/// enrichie de la caméra émettrice et de l'heure de réception locale.
+class CameraEventRecord {
+  const CameraEventRecord({
+    required this.cameraId,
+    required this.cameraName,
+    required this.event,
+    required this.receivedAt,
+  });
+
+  final String cameraId;
+  final String cameraName;
+  final OnvifEvent event;
+  final DateTime receivedAt;
+}
+
+/// Un poller d'événements ONVIF (PullPoint) par caméra connectée.
+///
+/// Cycle de vie :
+///  1. [start] → souscription PullPoint (PT1M par défaut)
+///  2. `_pullTimer` → pull toutes les 3 s (garde anti-chevauchement :
+///     un long-poll lent ne cumule jamais les requêtes)
+///  3. `_renewTimer` → renouvellement à mi-vie (expiration / 2)
+///  4. chaque événement → [SiteController.recordEvent]
+///  5. [stop] → `unsubscribe` propre
+///
+/// Auto-réparation : souscription expirée ou caméra injoignable →
+/// re-souscription après un repos (jamais d'exception vers l'UI).
+class CameraEventPoller {
+  CameraEventPoller({
+    required this.camera,
+    required this.controller,
+    this._pullInterval = const Duration(seconds: 3),
+  });
+
+  final Equipment camera;
+  final SiteController controller;
+  final Duration _pullInterval;
+
+  Timer? _renewTimer;
+  Timer? _pullTimer;
+  PullPointSubscription? _subscription;
+  bool _pulling = false;
+  bool _stopped = false;
+
+  /// La caméra expose-t-elle un flux RTSP avec identifiants ONVIF ?
+  /// (les relais go2rtc/cloud n'ont pas de PullPoint direct.)
+  late final bool isSupported = _resolveSupport();
+
+  Uri? _deviceUri;
+  OnvifCredentials? _creds;
+
+  bool _resolveSupport() {
+    final url = Uri.tryParse(camera.streamUrl ?? '');
+    if (url == null || !url.isScheme('rtsp')) return false;
+    final parts = url.userInfo.split(':');
+    if (parts.length < 2 || parts[0].isEmpty) return false;
+    _creds = OnvifCredentials(
+      user: Uri.decodeComponent(parts[0]),
+      password: Uri.decodeComponent(parts.sublist(1).join(':')),
+    );
+    _deviceUri = Uri(
+      scheme: 'http',
+      host: url.host,
+      port: url.hasPort ? url.port : 80,
+      path: '/onvif/device_service',
+    );
+    return true;
+  }
+
+  /// Démarre la boucle (silencieux si non supporté).
+  Future<void> start() async {
+    if (_stopped || !isSupported) return;
+    await _subscribe();
+  }
+
+  Future<void> _subscribe() async {
+    if (_stopped) return;
+    try {
+      final sub = await createPullPointSubscription(
+        _deviceUri!.toString(),
+        _creds!,
+      );
+      if (_stopped) {
+        // Arrêté pendant la souscription → libérer immédiatement.
+        await unsubscribe(sub.url, _creds!).catchError((_) {});
+        return;
+      }
+      _subscription = sub;
+      _armTimers(sub);
+    } catch (e) {
+      debugPrint(
+        'CameraEventPoller(${camera.name}): souscription échouée '
+        '($e) — nouvelle tentative dans 30 s',
+      );
+      if (!_stopped) {
+        Timer(const Duration(seconds: 30), _subscribe);
+      }
+    }
+  }
+
+  void _armTimers(PullPointSubscription sub) {
+    _pullTimer?.cancel();
+    _renewTimer?.cancel();
+
+    _pullTimer = Timer.periodic(_pullInterval, (_) => unawaited(_pull()));
+
+    // Renouvellement à mi-vie (expiration / 2), borné 5–60 s.
+    var half = const Duration(seconds: 30);
+    if (sub.terminationTime != null && sub.currentTime != null) {
+      final life = sub.terminationTime!.difference(sub.currentTime!);
+      if (life.inSeconds > 0) half = life * 0.5;
+    }
+    if (half.inSeconds < 5) half = const Duration(seconds: 5);
+    if (half.inSeconds > 60) half = const Duration(seconds: 60);
+    _renewTimer = Timer.periodic(half, (_) => unawaited(_renew()));
+  }
+
+  Future<void> _pull() async {
+    // Garde anti-chevauchement : un long-poll lent ne doit jamais
+    // empiler les requêtes (le tick suivant est simplement ignoré).
+    if (_pulling || _stopped || _subscription == null) return;
+    _pulling = true;
+    try {
+      final events = await pullMessages(
+        _subscription!.url,
+        _creds!,
+        timeout: _pullInterval + const Duration(seconds: 2),
+      );
+      for (final e in events) {
+        controller.recordEvent(camera, e);
+      }
+    } catch (e) {
+      // Souscription expirée (TerminationTime dépassé) ou réseau coupé :
+      // on re-souscrit from scratch au prochain cycle.
+      debugPrint('CameraEventPoller(${camera.name}): pull échoué ($e)');
+      await _resubscribe();
+    } finally {
+      _pulling = false;
+    }
+  }
+
+  Future<void> _renew() async {
+    final sub = _subscription;
+    if (sub == null || _stopped) return;
+    try {
+      await renewSubscription(
+        sub.url,
+        _creds!,
+        terminationTime: const Duration(minutes: 1),
+      );
+    } catch (e) {
+      debugPrint('CameraEventPoller(${camera.name}): renew échoué ($e)');
+      await _resubscribe();
+    }
+  }
+
+  Future<void> _resubscribe() async {
+    _cancelTimers();
+    _subscription = null;
+    if (!_stopped) await _subscribe();
+  }
+
+  void _cancelTimers() {
+    _pullTimer?.cancel();
+    _pullTimer = null;
+    _renewTimer?.cancel();
+    _renewTimer = null;
+  }
+
+  /// Arrête la boucle et libère la souscription côté appareil.
+  Future<void> stop() async {
+    _stopped = true;
+    _cancelTimers();
+    final sub = _subscription;
+    _subscription = null;
+    if (sub != null) {
+      try {
+        await unsubscribe(sub.url, _creds!);
+      } catch (e) {
+        // Appareil déjà parti : on ignore.
+        debugPrint('CameraEventPoller.stop: $e');
+      }
+    }
   }
 }

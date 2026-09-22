@@ -15,7 +15,6 @@ import '../data/dahua_api.dart';
 import '../data/go2rtc.dart';
 import '../data/isapi.dart';
 import '../data/onvif.dart';
-import '../data/onvif_events_listener.dart';
 import '../data/site_controller.dart';
 import '../data/stream_scheduler.dart';
 import '../data/rtc_config.dart';
@@ -2455,11 +2454,9 @@ class _CameraTileState extends State<_CameraTile> {
   // null = sonde en cours, true = joignable, false = injoignable.
   bool? _reachable;
 
-  // ── Événements ONVIF (alerte mouvement temps réel) ──
-  OnvifEventsListener? _eventsListener;
-  StreamSubscription<OnvifEvent>? _eventsSub;
-  bool _motionActive = false;
-  Timer? _motionResetTimer;
+  // ── Événements ONVIF : état DÉRIVÉ de SiteController (recordEvent →
+  // notifyListeners → rebuild) — plus de listener par tuile (morts au scroll).
+  // Voir CameraEventPoller / SiteController.isMotionActive.
 
   // ── Bande passante mosaïque ──
   // Snapshot périodique (5 s) pour les tuiles hors quota live.
@@ -2483,7 +2480,6 @@ class _CameraTileState extends State<_CameraTile> {
     super.initState();
     _probe();
     _resolveAuthorization();
-    _startEvents();
   }
 
   /// Vérifie l'accès au flux côté SERVEUR avant tout aperçu.
@@ -2513,9 +2509,6 @@ class _CameraTileState extends State<_CameraTile> {
   @override
   void dispose() {
     _snapshotTimer?.cancel();
-    _motionResetTimer?.cancel();
-    _eventsSub?.cancel();
-    _eventsListener?.dispose();
     super.dispose();
   }
 
@@ -2624,55 +2617,6 @@ class _CameraTileState extends State<_CameraTile> {
     if (mounted) setState(() => _reachable = error == null);
   }
 
-  /// Écoute les événements ONVIF (mouvement) : badge temps réel sur la
-  /// tuile + notification locale. Silencieux si la caméra n'est pas ONVIF
-  /// (RTSP direct, relais…) — aucune boucle n'est alors lancée.
-  void _startEvents() {
-    if (_probeDisabled) return; // tests
-    final url = Uri.tryParse(widget.camera.streamUrl ?? '');
-    if (url == null || !url.isScheme('rtsp')) return; // ONVIF = RTSP direct
-    final creds = url.userInfo.split(':');
-    if (creds.length < 2) return;
-
-    final listener = OnvifEventsListener(
-      deviceUrl: Uri(
-        scheme: 'http',
-        host: url.host,
-        port: url.hasPort ? url.port : 80,
-        path: '/onvif/device_service',
-      ).toString(),
-      credentials: OnvifCredentials(
-        user: Uri.decodeComponent(creds[0]),
-        password: Uri.decodeComponent(creds.sublist(1).join(':')),
-      ),
-    );
-    _eventsListener = listener;
-    _eventsSub = listener.events.listen(_onOnvifEvent);
-    listener.start();
-  }
-
-  void _onOnvifEvent(OnvifEvent event) {
-    if (!mounted) return;
-    final motion = event.isMotionActive;
-    setState(() => _motionActive = motion);
-    // Fin de mouvement : effacer le badge après un délai (évite le
-    // clignotement sur les micro-pauses de détection).
-    _motionResetTimer?.cancel();
-    if (!motion) {
-      _motionResetTimer = Timer(const Duration(seconds: 4), () {
-        if (mounted) setState(() => _motionActive = false);
-      });
-    } else {
-      _notifyMotion(event);
-    }
-  }
-
-  void _notifyMotion(OnvifEvent event) {
-    // Notification locale UNIQUEMENT si l'app est en arrière-plan — sinon
-    // le badge tuile suffit (pas de spam quand on regarde la mosaïque).
-    // TODO(terrain) : brancher WidgetsBindingObserver lifecycleAppstate.
-  }
-
   Future<void> _disconnect(BuildContext context) async {
     final data = DataScope.of(context);
     final confirmed = await confirmRemoveEquipment(
@@ -2702,6 +2646,9 @@ class _CameraTileState extends State<_CameraTile> {
   Widget build(BuildContext context) {
     final cam = widget.camera;
     final live = cam.isLive;
+    // Mouvement temps réel : dérivé de SiteController (les pollers y
+    // enregistrent les événements → notifyListeners → rebuild des tuiles).
+    final motionActive = DataScope.of(context).isMotionActive(cam.id);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -2883,7 +2830,7 @@ class _CameraTileState extends State<_CameraTile> {
                   ),
                 ),
                 // Alerte mouvement temps réel (ONVIF PullPoint)
-                if (_motionActive)
+                if (motionActive)
                   Positioned(
                     top: 10,
                     right: 48,

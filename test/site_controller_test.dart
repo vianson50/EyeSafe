@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:eyesafe/data/models.dart';
+import 'package:eyesafe/data/onvif.dart';
 import 'package:eyesafe/data/site_controller.dart';
 
 void main() {
@@ -266,6 +267,51 @@ void main() {
     });
 
     test(
+      'recordEvent centralise les événements et isMotionActive suit la fenêtre',
+      () async {
+        final controller = SiteController.demoForTest();
+        final camera = Equipment(
+          id: 'CAM-X',
+          name: 'Test',
+          model: '',
+          serial: 'S',
+          location: '',
+          category: EquipmentCategory.camera,
+          installedAt: DateTime.now(),
+          streamUrl: 'rtsp://a:b@1.2.3.4:554/x',
+        );
+
+        // Aucun événement → pas de mouvement.
+        expect(controller.isMotionActive('CAM-X'), isFalse);
+
+        // Alarme de mouvement fraîche → actif.
+        controller.recordEvent(
+          camera,
+          const OnvifEvent(
+            topic: 'tns1:VideoAnalytics/MotionAlarm',
+            data: {'State': 'true'},
+          ),
+        );
+        expect(controller.isMotionActive('CAM-X'), isTrue);
+        expect(controller.cameraEvents, hasLength(1));
+        expect(controller.cameraEvents.first.cameraName, 'Test');
+
+        // Fin de mouvement → inactif immédiatement.
+        controller.recordEvent(
+          camera,
+          const OnvifEvent(
+            topic: 'tns1:VideoAnalytics/MotionAlarm',
+            data: {'State': 'false'},
+          ),
+        );
+        expect(controller.isMotionActive('CAM-X'), isFalse);
+        expect(controller.cameraEvents, hasLength(2));
+
+        controller.dispose();
+      },
+    );
+
+    test(
       'connectNvr distant crée des caméras via IP publique/domaine',
       () async {
         final controller = SiteController.demoForTest();
@@ -295,6 +341,56 @@ void main() {
         controller.dispose();
       },
     );
+  });
+
+  group('CameraEventPoller — support et cycle de vie', () {
+    test('isSupported : RTSP avec identifiants uniquement', () {
+      Equipment camWith(String? url) => Equipment(
+        id: 'C1',
+        name: 'N',
+        model: '',
+        serial: 'S',
+        location: '',
+        category: EquipmentCategory.camera,
+        installedAt: DateTime.now(),
+        streamUrl: url,
+      );
+      final controller = SiteController.demoForTest();
+
+      // RTSP + creds → supporté.
+      expect(
+        CameraEventPoller(
+          camera: camWith('rtsp://admin:pass@192.168.1.64:554/x'),
+          controller: controller,
+        ).isSupported,
+        isTrue,
+      );
+      // Relais go2rtc/cloud (http) → non supporté.
+      expect(
+        CameraEventPoller(
+          camera: camWith('http://cloud:1984/api/stream.m3u8?src=cam'),
+          controller: controller,
+        ).isSupported,
+        isFalse,
+      );
+      // RTSP sans identifiants → non supporté (pas d'ONVIF Digest).
+      expect(
+        CameraEventPoller(
+          camera: camWith('rtsp@192.168.1.64:554/x'.replaceFirst('@', '')),
+          controller: controller,
+        ).isSupported,
+        isFalse,
+      );
+      // Pas de flux → non supporté.
+      expect(
+        CameraEventPoller(
+          camera: camWith(null),
+          controller: controller,
+        ).isSupported,
+        isFalse,
+      );
+      controller.dispose();
+    });
   });
 
   group('testEndpoint (accès distant IP directe)', () {
