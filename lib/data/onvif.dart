@@ -834,6 +834,22 @@ class OnvifEvent {
     return t.split('/').where((s) => s.isNotEmpty).toList();
   }
 
+  /// Événement CRITIQUE — à remonter en alerte (vs mouvement = simple
+  /// historique). Sujets concernés : intrusion (LineDetector/
+  /// FieldDetector), sabotage/tamper (camera tampering, sabotage),
+  /// débranchement (VideoLoss), alarme audio d'agression.
+  bool get isCritical {
+    final t = topic.toLowerCase();
+    return t.contains('intrusion') ||
+        t.contains('tamper') ||
+        t.contains('sabotage') ||
+        t.contains('videoloss') ||
+        t.contains('video_loss') ||
+        t.contains('linedetector') ||
+        t.contains('fielddetector') ||
+        t.contains('aggression');
+  }
+
   /// Alarme de mouvement ACTIVE — absorbe la variance des firmwares :
   ///  - sujets : `…/MotionAlarm`, `…/Motion`, `…/CellMotionDetectorAlarm/Motion`
   ///  - items  : `State` (Hikvision), `IsMotion`, `IsActive` (Axis)

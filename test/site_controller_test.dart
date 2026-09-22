@@ -284,6 +284,8 @@ void main() {
         // Aucun événement → pas de mouvement.
         expect(controller.isMotionActive('CAM-X'), isFalse);
 
+        final t0 = DateTime.now();
+
         // Alarme de mouvement fraîche → actif.
         controller.recordEvent(
           camera,
@@ -291,18 +293,21 @@ void main() {
             topic: 'tns1:VideoAnalytics/MotionAlarm',
             data: {'State': 'true'},
           ),
+          now: t0,
         );
         expect(controller.isMotionActive('CAM-X'), isTrue);
         expect(controller.cameraEvents, hasLength(1));
         expect(controller.cameraEvents.first.cameraName, 'Test');
 
-        // Fin de mouvement → inactif immédiatement.
+        // Fin de mouvement APRÈS la fenêtre de dédup (sinon ignorée comme
+        // doublon du même topic) → dernier événement = false.
         controller.recordEvent(
           camera,
           const OnvifEvent(
             topic: 'tns1:VideoAnalytics/MotionAlarm',
             data: {'State': 'false'},
           ),
+          now: t0.add(const Duration(seconds: 31)),
         );
         expect(controller.isMotionActive('CAM-X'), isFalse);
         expect(controller.cameraEvents, hasLength(2));
@@ -310,6 +315,135 @@ void main() {
         controller.dispose();
       },
     );
+
+    test(
+      'recordEvent DÉDUPLIQUE (caméra+topic) sur 30 s et priorise',
+      () async {
+        final controller = SiteController.demoForTest();
+        final camera = Equipment(
+          id: 'CAM-X',
+          name: 'Test',
+          model: '',
+          serial: 'S',
+          location: '',
+          category: EquipmentCategory.camera,
+          installedAt: DateTime.now(),
+          streamUrl: 'rtsp://a:b@1.2.3.4:554/x',
+        );
+        final camB = Equipment(
+          id: 'CAM-B',
+          name: 'B',
+          model: '',
+          serial: 'S',
+          location: '',
+          category: EquipmentCategory.camera,
+          installedAt: DateTime.now(),
+          streamUrl: 'rtsp://a:b@1.2.3.5:554/x',
+        );
+
+        final t0 = DateTime(2026, 9, 22, 14, 0, 0);
+        final motion = const OnvifEvent(
+          topic: 'tns1:VideoAnalytics/MotionAlarm',
+          data: {'State': 'true'},
+        );
+
+        // Rafale de 5 événements identiques en 10 s → 1 seul retenu.
+        var recorded = 0;
+        for (var i = 0; i < 5; i++) {
+          if (controller.recordEvent(
+            camera,
+            motion,
+            now: t0.add(Duration(seconds: i * 2)),
+          )) {
+            recorded++;
+          }
+        }
+        expect(recorded, 1, reason: 'les doublons 30 s sont ignorés');
+        expect(controller.cameraEvents, hasLength(1));
+
+        // Autre caméra, même topic → PAS un doublon (clé = caméra+topic).
+        expect(
+          controller.recordEvent(
+            camB,
+            motion,
+            now: t0.add(const Duration(seconds: 3)),
+          ),
+          isTrue,
+        );
+
+        // Autre topic sur la même caméra → pas un doublon non plus.
+        expect(
+          controller.recordEvent(
+            camera,
+            const OnvifEvent(topic: 'tns1:AudioAnalytics/AudioDetected'),
+            now: t0.add(const Duration(seconds: 4)),
+          ),
+          isTrue,
+        );
+
+        // Même topic APRÈS la fenêtre de 30 s → enregistré.
+        expect(
+          controller.recordEvent(
+            camera,
+            motion,
+            now: t0.add(const Duration(seconds: 31)),
+          ),
+          isTrue,
+        );
+        // 1 (motion dédup) + 1 (camB) + 1 (audio) + 1 (motion >30s) = 4.
+        expect(controller.cameraEvents, hasLength(4));
+
+        controller.dispose();
+      },
+    );
+
+    test(
+      'priorisation : tamper/intrusion = critiques, motion = historique',
+      () {
+        const motion = OnvifEvent(
+          topic: 'tns1:VideoAnalytics/MotionAlarm',
+          data: {'State': 'true'},
+        );
+        const tamper = OnvifEvent(
+          topic: 'tns1:Device/TamperDetection',
+          data: {'State': 'true'},
+        );
+        const intrusion = OnvifEvent(
+          topic: 'tns1:RuleEngine/FieldDetector/ObjectsInside',
+        );
+
+        expect(motion.isCritical, isFalse);
+        expect(tamper.isCritical, isTrue);
+        expect(intrusion.isCritical, isTrue);
+      },
+    );
+
+    test('résumé multi-caméras : N caméras distinctes sur 60 s', () {
+      final controller = SiteController.demoForTest();
+      Equipment cam(String id) => Equipment(
+        id: id,
+        name: id,
+        model: '',
+        serial: 'S',
+        location: '',
+        category: EquipmentCategory.camera,
+        installedAt: DateTime.now(),
+        streamUrl: 'rtsp://a:b@1.2.3.4:554/x',
+      );
+      final t0 = DateTime.now();
+      final motion = const OnvifEvent(
+        topic: 'tns1:VideoAnalytics/MotionAlarm',
+        data: {'State': 'true'},
+      );
+
+      controller.recordEvent(cam('A'), motion, now: t0);
+      controller.recordEvent(cam('B'), motion, now: t0);
+      controller.recordEvent(cam('C'), motion, now: t0);
+
+      expect(controller.motionCameraCount, 3);
+      expect(controller.multiMotionSummary, 'Activité multiple — 3 caméras');
+      controller.dispose();
+    });
 
     test(
       'connectNvr distant crée des caméras via IP publique/domaine',

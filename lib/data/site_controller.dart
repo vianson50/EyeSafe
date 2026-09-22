@@ -65,42 +65,101 @@ class SiteController extends ChangeNotifier {
   final Map<String, CameraEventPoller> _eventPollers = {};
 
   /// Derniers événements reçus (toutes caméras), plus récents d'abord.
+  /// DÉDUPLIQUÉS : même topic + même caméra dans une fenêtre de 30 s →
+  /// un seul enregistrement (une caméra qui détecte émet ~50 événements/min,
+  /// l'historique doit rester lisible).
   List<CameraEventRecord> cameraEvents = const [];
   static const _maxCameraEvents = 100;
   static const _motionGracePeriod = Duration(seconds: 4);
+  static const _dedupWindow = Duration(seconds: 30);
+
+  /// Dernier enregistrement PAR (caméra, topic) — pour la déduplication.
+  /// Clé : `cameraId|topic`.
+  final Map<String, DateTime> _lastEventAt = {};
 
   /// Environnement de test → pas de boucles réseau/timers (les tests
   /// widget cramperaient sur des timers pendants).
   static bool get _eventsPollingDisabled =>
       !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
 
-  /// Enregistre un événement caméra (appelé par les pollers) : historique
-  /// borné + notification UI (mosaïque, dashboard…).
-  void recordEvent(Equipment camera, OnvifEvent event) {
+  /// Enregistre un événement caméra (appelé par les pollers).
+  ///
+  /// Politique anti-bruit (une caméra émet ~50 évts/min sinon) :
+  ///  1. **Déduplication** : même (caméra, topic) dans les 30 dernières
+  ///     secondes → ignoré silencieusement.
+  ///  2. **Priorisation** : intrusion/tamper/sabotage → alerte remontée
+  ///     (isCritical) ; mouvement → historique seul.
+  ///
+  /// Retourne true si l'événement a été enregistré (non dédupliqué).
+  bool recordEvent(Equipment camera, OnvifEvent event, {DateTime? now}) {
+    final receivedAt = now ?? DateTime.now();
+
+    // 1. Déduplication (caméra, topic) sur la fenêtre glissante.
+    final key = '${camera.id}|${event.topic}';
+    final lastAt = _lastEventAt[key];
+    if (lastAt != null && receivedAt.difference(lastAt) < _dedupWindow) {
+      return false; // doublon — ignoré
+    }
+    _lastEventAt[key] = receivedAt;
+
     cameraEvents = <CameraEventRecord>[
       CameraEventRecord(
         cameraId: camera.id,
         cameraName: camera.name,
         event: event,
-        receivedAt: DateTime.now(),
+        receivedAt: receivedAt,
       ),
       ...cameraEvents,
     ].take(_maxCameraEvents).toList();
     notifyListeners();
+    return true;
   }
 
-  /// Mouvement ACTIF sur cette caméra ? (dernier événement = mouvement,
-  /// reçu il y a moins de 4 s — évite le clignotement sur micro-pauses).
+  /// Mouvement ACTIF sur cette caméra ? Basé sur les enregistrements
+  /// DÉDUPLIQUÉS — la fenêtre de grâce couvre la période de silence
+  /// entre deux enregistrements dédupliqués consécutifs (30 s de
+  /// dédup + marge de grâce) : le badge reste stable pendant toute
+  /// l'activité continue.
   bool isMotionActive(String cameraId) {
+    final grace = _dedupWindow + _motionGracePeriod;
     for (final r in cameraEvents) {
       if (r.cameraId != cameraId) continue;
-      if (DateTime.now().difference(r.receivedAt) > _motionGracePeriod) {
-        return false; // dernier événement trop vieux
+      if (DateTime.now().difference(r.receivedAt) > grace) {
+        return false; // dernier enregistrement trop vieux
       }
       return r.event.isMotionActive;
     }
     return false;
   }
+
+  /// Événements critiques (intrusion/tamper/sabotage) récents — à
+  /// remonter en alertes UI (badge rouge, notification).
+  List<CameraEventRecord> get criticalEvents => cameraEvents
+      .where(
+        (r) =>
+            r.event.isCritical &&
+            DateTime.now().difference(r.receivedAt) < _dedupWindow,
+      )
+      .toList();
+
+  /// Nombre de caméras DISTINCTES ayant détecté du mouvement ces 60
+  /// dernières secondes — à la hausse récente (> 1), l'UI peut résumer
+  /// en « Activité multiple » plutôt qu'en une liste de badges.
+  int get motionCameraCount {
+    final cutoff = DateTime.now().subtract(const Duration(seconds: 60));
+    final cameras = <String>{};
+    for (final r in cameraEvents) {
+      if (r.receivedAt.isBefore(cutoff)) continue;
+      if (r.event.isMotionActive) cameras.add(r.cameraId);
+    }
+    return cameras.length;
+  }
+
+  /// Libellé résumé pour l'UI : « Activité multiple — N caméras » quand
+  /// plusieurs caméras bougent en même temps, sinon null.
+  String? get multiMotionSummary => motionCameraCount > 1
+      ? 'Activité multiple — $motionCameraCount caméras'
+      : null;
 
   /// Synchronise les pollers avec l'inventaire : démarre un poller par
   /// caméra ONVIF nouvelle, arrête ceux des caméras retirées.
