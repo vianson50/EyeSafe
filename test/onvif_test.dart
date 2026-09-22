@@ -372,6 +372,100 @@ void main() {
     });
   });
 
+  group('Replay ONVIF — Recording Search', () {
+    test(
+      'parse une réponse FindRecordings (token + segments + pagination)',
+      () {
+        const xml = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+            xmlns:tt="http://www.onvif.org/ver10/schema"
+            xmlns:tev="http://www.onvif.org/ver10/events/wsdl">
+ <s:Body>
+  <tse:FindRecordingsResponse xmlns:tse="http://www.onvif.org/ver10/search/wsdl">
+   <tse:SearchToken>SEARCH-123</tse:SearchToken>
+   <tse:Result>100</tse:Result>
+   <tse:MoreUpdates>false</tse:MoreUpdates>
+   <tt:RecordingInformation>
+    <tt:RecordingToken>REC-001</tt:RecordingToken>
+    <tt:RecordInformation>
+     <tt:Source>
+      <tt:SourceToken>vsc1</tt:SourceToken>
+      <tt:BeginDateTime>2026-09-22T01:00:00Z</tt:BeginDateTime>
+      <tt:EndDateTime>2026-09-22T01:45:00Z</tt:EndDateTime>
+     </tt:Source>
+    </tt:RecordInformation>
+   </tt:RecordingInformation>
+   <tt:RecordingInformation>
+    <tt:RecordingToken>REC-002</tt:RecordingToken>
+    <tt:RecordInformation>
+     <tt:Source>
+      <tt:SourceToken>vsc1</tt:SourceToken>
+      <tt:BeginDateTime>2026-09-22T08:00:00Z</tt:BeginDateTime>
+      <tt:EndDateTime>2026-09-22T08:30:00Z</tt:EndDateTime>
+     </tt:Source>
+    </tt:RecordInformation>
+   </tt:RecordingInformation>
+  </tse:FindRecordingsResponse>
+ </s:Body>
+</s:Envelope>
+''';
+        final result = parseRecordingSearchForTest(xml);
+        expect(result.searchToken, 'SEARCH-123');
+        expect(result.segments, hasLength(2));
+
+        final first = result.segments.first;
+        expect(first.recordingToken, 'REC-001');
+        expect(first.sourceToken, 'vsc1');
+        expect(first.duration, const Duration(minutes: 45));
+        // Triés par début.
+        expect(result.segments.last.recordingToken, 'REC-002');
+
+        // Segments seuls (étape 2 — même parsing).
+        final segments = parseRecordingSegmentsForTest(xml);
+        expect(segments.map((s) => s.recordingToken), ['REC-001', 'REC-002']);
+      },
+    );
+
+    test('ignore les segments invalides (fin <= début, sans token)', () {
+      const xml = '''
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope">
+ <s:Body>
+  <tse:FindRecordingsResponse xmlns:tse="http://www.onvif.org/ver10/search/wsdl">
+   <tse:SearchToken>T</tse:SearchToken>
+   <tt:RecordingInformation xmlns:tt="http://www.onvif.org/ver10/schema">
+    <tt:RecordingToken>BAD-1</tt:RecordingToken>
+    <tt:RecordInformation><tt:Source>
+     <tt:BeginDateTime>2026-09-22T10:00:00Z</tt:BeginDateTime>
+     <tt:EndDateTime>2026-09-22T10:00:00Z</tt:EndDateTime>
+    </tt:Source></tt:RecordInformation>
+   </tt:RecordingInformation>
+   <tt:RecordingInformation xmlns:tt="http://www.onvif.org/ver10/schema">
+    <tt:RecordInformation><tt:Source>
+     <tt:BeginDateTime>2026-09-22T11:00:00Z</tt:BeginDateTime>
+     <tt:EndDateTime>2026-09-22T11:30:00Z</tt:EndDateTime>
+    </tt:Source></tt:RecordInformation>
+   </tt:RecordingInformation>
+  </tse:FindRecordingsResponse>
+ </s:Body>
+</s:Envelope>
+''';
+      // Le 1er a fin == début (ignoré), le 2e n'a pas de RecordingToken
+      // (ignoré) — mais SearchToken présent → résultat valide, 0 segment.
+      final result = parseRecordingSearchForTest(xml);
+      expect(result.segments, isEmpty);
+    });
+
+    test('sans SearchToken → service absent (repli constructeur)', () {
+      const xml =
+          '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"/>';
+      expect(
+        () => parseRecordingSearchForTest(xml),
+        throwsA(isA<OnvifException>()),
+      );
+    });
+  });
+
   group('parsing WS-Discovery ProbeMatch', () {
     test('extrait XAddrs et le nom depuis les scopes', () {
       const probeMatch = '''

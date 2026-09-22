@@ -3044,20 +3044,36 @@ class _TileWebrtcPreviewState extends State<_TileWebrtcPreview> {
 /// Navigateur d'enregistrements (replay) : choix de date → segments du
 /// jour sur l'appareil/NVR → tap pour rejouer.
 class _ReplaySheet extends StatefulWidget {
-  const _ReplaySheet({required this.device, required this.channel});
+  const _ReplaySheet({
+    required this.device,
+    required this.channel,
+    this.onvifDeviceUrl,
+    this.onvifCreds,
+  });
 
   final IsapiDevice device;
   final int channel;
+
+  /// Si fournis : replay ONVIF standard en PRIORITÉ (Recording Search,
+  /// couvre Dahua, Axis, Uniview et Hikvision) — repli ISAPI si l'appareil
+  /// n'expose pas le service.
+  final String? onvifDeviceUrl;
+  final OnvifCredentials? onvifCreds;
 
   @override
   State<_ReplaySheet> createState() => _ReplaySheetState();
 }
 
+/// Segment de replay UNIFIÉ : heures + URL RTSP prête à jouer (construite
+/// par le backend gagnant — ONVIF GetReplayUri ou piste ISAPI).
+typedef ReplaySegment = ({DateTime start, DateTime end, String replayUrl});
+
 class _ReplaySheetState extends State<_ReplaySheet> {
   DateTime _day = DateTime.now();
   bool _loading = false;
-  List<IsapiRecording> _recordings = [];
+  List<ReplaySegment> _recordings = [];
   String? _error;
+  bool _isOnvifMode = false;
 
   @override
   void initState() {
@@ -3072,6 +3088,35 @@ class _ReplaySheetState extends State<_ReplaySheet> {
     });
     final start = DateTime(_day.year, _day.month, _day.day);
     final end = start.add(const Duration(days: 1));
+
+    // ── Priorité ONVIF (standard, toutes marques) ──
+    final onvifUrl = widget.onvifDeviceUrl;
+    final onvifCreds = widget.onvifCreds;
+    if (onvifUrl != null && onvifCreds != null) {
+      try {
+        final segments = await findReplaySegments(
+          onvifUrl,
+          onvifCreds,
+          from: start,
+          to: end,
+        );
+        if (!mounted) return;
+        setState(() {
+          _isOnvifMode = true;
+          _recordings = segments;
+          _loading = false;
+          if (segments.isEmpty) {
+            _error = 'Aucun enregistrement ce jour-là.';
+          }
+        });
+        return; // ONVIF a répondu — pas de repli
+      } on OnvifException catch (e) {
+        // Service Recording Search absent → repli ISAPI ci-dessous.
+        debugPrint('ReplaySheet ONVIF: $e — repli ISAPI');
+      }
+    }
+
+    // ── Repli ISAPI (Hikvision uniquement) ──
     try {
       final found = await widget.device.searchRecordings(
         channel: widget.channel,
@@ -3079,8 +3124,31 @@ class _ReplaySheetState extends State<_ReplaySheet> {
         end: end,
       );
       if (!mounted) return;
+      final url = Uri.parse(onvifUrl ?? widget.device.uriFor('/').toString());
+      final credsParts = url.userInfo.split(':');
+      final segments = <ReplaySegment>[
+        for (final r in found)
+          (
+            start: r.start,
+            end: r.end,
+            replayUrl: IsapiDevice.playbackUrl(
+              host: url.host,
+              rtspPort: url.hasPort ? '${url.port}' : '554',
+              user: credsParts.isNotEmpty
+                  ? Uri.decodeComponent(credsParts[0])
+                  : '',
+              password: credsParts.length > 1
+                  ? Uri.decodeComponent(credsParts.sublist(1).join(':'))
+                  : '',
+              trackId: r.trackId,
+              start: r.start,
+              end: r.end,
+            ),
+          ),
+      ];
       setState(() {
-        _recordings = found;
+        _isOnvifMode = false;
+        _recordings = segments;
         _loading = false;
         if (found.isEmpty) {
           _error = 'Aucun enregistrement ce jour-là.';
@@ -3235,7 +3303,8 @@ class _ReplaySheetState extends State<_ReplaySheet> {
                               ),
                               const Spacer(),
                               Text(
-                                '${r.duration.inMinutes} min',
+                                '${r.end.difference(r.start).inMinutes} min'
+                                '${_isOnvifMode ? ' · ONVIF' : ''}',
                                 style: monoStyle(
                                   10.5,
                                   color: AppColors.onSurfaceFaint,
@@ -3470,6 +3539,38 @@ class _LiveViewState extends State<_LiveView> {
     return m.contains('Hikvision') || m.contains('ISAPI') || m.contains('NVR');
   }
 
+  /// Caméra joignable en ONVIF depuis l'URL RTSP (avec identifiants) ?
+  /// Replay ONVIF standard — couvre Dahua, Axis, Uniview et Hikvision.
+  bool get _isOnvifReplayCapable {
+    final url = Uri.tryParse(_url ?? '');
+    if (url == null || !url.isScheme('rtsp')) return false;
+    return url.userInfo.split(':').length >= 2;
+  }
+
+  Uri? _onvifDeviceUriCache;
+  OnvifCredentials? _onvifCredsCache;
+
+  (Uri, OnvifCredentials) _onvifTarget() {
+    final cachedUri = _onvifDeviceUriCache;
+    final cachedCreds = _onvifCredsCache;
+    if (cachedUri != null && cachedCreds != null) {
+      return (cachedUri, cachedCreds);
+    }
+    final url = Uri.tryParse(_url ?? '')!;
+    final parts = url.userInfo.split(':');
+    final creds = OnvifCredentials(
+      user: Uri.decodeComponent(parts[0]),
+      password: Uri.decodeComponent(parts.sublist(1).join(':')),
+    );
+    final uri = Uri(
+      scheme: 'http',
+      host: url.host,
+      port: url.hasPort ? url.port : 80,
+      path: '/onvif/device_service',
+    );
+    return (_onvifDeviceUriCache = uri, _onvifCredsCache = creds);
+  }
+
   IsapiDevice? _hikDeviceCache;
 
   IsapiDevice _hikDevice() {
@@ -3494,34 +3595,36 @@ class _LiveViewState extends State<_LiveView> {
   }
 
   /// Ouvre le navigateur d'enregistrements (replay).
+  /// Priorité ONVIF (standard : Dahua, Axis, Uniview, Hikvision),
+  /// repli ISAPI (Hikvision uniquement) si l'appareil n'expose pas
+  /// le service de recherche standard.
   Future<void> _openReplay() async {
-    if (!_isHikvisionRtsp) return;
-    final segment = await showModalBottomSheet<IsapiRecording>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) =>
-          _ReplaySheet(device: _hikDevice(), channel: _cameraChannel),
-    );
+    if (!_isOnvifReplayCapable && !_isHikvisionRtsp) return;
+
+    // Segment générique retourné par la feuille (ONVIF ou ISAPI).
+    final segment =
+        await showModalBottomSheet<
+          ({DateTime start, DateTime end, String replayUrl})
+        >(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: AppColors.card,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          builder: (sheetContext) => _ReplaySheet(
+            // ONVIF en priorité ; la feuille retombe sur ISAPI seule si
+            // le service Recording Search est absent.
+            device: _hikDevice(),
+            channel: _cameraChannel,
+            onvifDeviceUrl: _isOnvifReplayCapable
+                ? _onvifTarget().$1.toString()
+                : null,
+            onvifCreds: _isOnvifReplayCapable ? _onvifTarget().$2 : null,
+          ),
+        );
     if (segment == null || !mounted) return;
-    final url = Uri.tryParse(_url ?? '');
-    if (url == null) return;
-    final creds = url.userInfo.split(':');
-    final port = url.hasPort ? '${url.port}' : '554';
-    final playback = IsapiDevice.playbackUrl(
-      host: url.host,
-      rtspPort: port,
-      user: creds.isNotEmpty ? Uri.decodeComponent(creds[0]) : '',
-      password: creds.length > 1
-          ? Uri.decodeComponent(creds.sublist(1).join(':'))
-          : '',
-      trackId: segment.trackId,
-      start: segment.start,
-      end: segment.end,
-    );
+
     setState(() {
       _replayLabel =
           'REPLAY ${segment.start.hour.toString().padLeft(2, '0')}:'
@@ -3530,7 +3633,7 @@ class _LiveViewState extends State<_LiveView> {
       _error = null;
     });
     unawaited(_disposeWebrtc());
-    _player.open(Media(playback));
+    _player.open(Media(segment.replayUrl));
   }
 
   /// Retour au direct depuis un replay.

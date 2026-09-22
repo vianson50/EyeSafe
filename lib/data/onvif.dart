@@ -1060,6 +1060,328 @@ Future<XmlElement> _eventsPost({
   }
 }
 
+// ═══════════════════════════════════════════════════════
+// REPLAY ONVIF — Recording Search + Replay (standard)
+//
+// Couvre Dahua, Axis, Uniview, Hikvision… d'un coup via le service
+// standard `ver10/search.wsdl` : FindRecordings → boucle
+// GetRecordingSearchResults → GetReplayUri (URL RTSP prête à lire).
+// ═════════════════════════════════════════════════════
+
+const _nsSearchWsdl = 'http://www.onvif.org/ver10/search/wsdl';
+
+/// Segment d'enregistrement trouvé via ONVIF Recording Search.
+class RecordingSegment {
+  const RecordingSegment({
+    required this.recordingToken,
+    required this.start,
+    required this.end,
+    this.sourceToken,
+  });
+
+  /// Token de l'enregistrement (pour GetReplayUri).
+  final String recordingToken;
+
+  /// Token de la source (caméra/canal) si exposé.
+  final String? sourceToken;
+
+  final DateTime start;
+  final DateTime end;
+
+  Duration get duration => end.difference(start);
+
+  @override
+  String toString() => 'RecordingSegment($sourceToken, $start → $end)';
+}
+
+/// Résultat d'une recherche multi-étapes (token de session + segments).
+class RecordingSearchResult {
+  const RecordingSearchResult({
+    required this.searchToken,
+    required this.segments,
+    this.moreResults = false,
+  });
+
+  /// Token de session de recherche (à passer à
+  /// [getRecordingSearchResults] / [endSearch]).
+  final String searchToken;
+
+  final List<RecordingSegment> segments;
+
+  /// true → d'autres résultats disponibles (pagination).
+  final bool moreResults;
+}
+
+String _isoUtc(DateTime t) =>
+    t.toUtc().toIso8601String().replaceFirst(RegExp(r'\.\d+'), '');
+
+/// Étape 1 — lance une recherche d'enregistrements sur la période
+/// [from]–[to] (optionnellement filtrée sur un canal via [sourceToken]).
+/// Retourne le token de session + les premiers segments.
+Future<RecordingSearchResult> findRecordings(
+  String deviceUrl,
+  OnvifCredentials creds, {
+  required DateTime from,
+  required DateTime to,
+  String? sourceToken,
+}) async {
+  final base = Uri.tryParse(deviceUrl);
+  if (base == null || !base.hasScheme) {
+    throw OnvifException('URL d\'appareil invalide : $deviceUrl');
+  }
+
+  final sourceFilter = sourceToken == null
+      ? ''
+      : '<tt:Source><tt:Token>$sourceToken</tt:Token></tt:Source>';
+
+  final body =
+      '<FindRecordings xmlns="$_nsSearchWsdl">'
+      '<MaxResults>100</MaxResults>'
+      '<SearchScope>'
+      '<tt:RecordingInformationFilter>'
+      '<tt:Source>true</tt:Source>'
+      '<tt:Extension/>‘'
+      '</tt:RecordingInformationFilter>'
+      '$sourceFilter'
+      '<tt:Extension>'
+      '<tt:Time>/</tt:Time>'
+      '<tt:TimeFrom>${_isoUtc(from)}</tt:TimeFrom>'
+      '<tt:TimeTill>${_isoUtc(to)}</tt:TimeTill>'
+      '</tt:Extension>'
+      '</SearchScope>'
+      '</FindRecordings>';
+
+  final root = await _eventsPost(
+    uri: base.replace(path: '/onvif/RecordingSearch'),
+    bodyXml: body,
+    soapAction: '$_nsSearchWsdl/FindRecordings',
+    creds: creds,
+  );
+  return parseRecordingSearchForTest(root.toXmlString());
+}
+
+/// Étape 2 — récupère les résultats suivants d'une recherche en cours
+/// (une caméra renvoie souvent par lots de 100).
+Future<List<RecordingSegment>> getRecordingSearchResults(
+  String searchToken,
+  String deviceUrl,
+  OnvifCredentials creds,
+) async {
+  final base = Uri.tryParse(deviceUrl);
+  if (base == null) throw OnvifException('URL invalide.');
+
+  final body =
+      '<GetRecordingSearchResults xmlns="$_nsSearchWsdl">'
+      '<SearchToken>$searchToken</SearchToken>'
+      '<MinResults>1</MinResults>'
+      '<MaxResults>100</MaxResults>'
+      '</GetRecordingSearchResults>';
+
+  final root = await _eventsPost(
+    uri: base.replace(path: '/onvif/RecordingSearch'),
+    bodyXml: body,
+    soapAction: '$_nsSearchWsdl/GetRecordingSearchResults',
+    creds: creds,
+  );
+  return parseRecordingSegmentsForTest(root.toXmlString());
+}
+
+/// Termime une session de recherche (libère les ressources appareil).
+Future<void> endSearch(
+  String searchToken,
+  String deviceUrl,
+  OnvifCredentials creds,
+) async {
+  final base = Uri.tryParse(deviceUrl);
+  if (base == null) return;
+  try {
+    await _eventsPost(
+      uri: base.replace(path: '/onvif/RecordingSearch'),
+      bodyXml:
+          '<EndSearch xmlns="$_nsSearchWsdl">'
+          '<SearchToken>$searchToken</SearchToken>'
+          '</EndSearch>',
+      soapAction: '$_nsSearchWsdl/EndSearch',
+      creds: creds,
+    );
+  } on OnvifException {
+    // Fin de session best-effort — on ignore.
+  }
+}
+
+/// Étape 3 — URL RTSP de rejeu d'un enregistrement
+/// (protocole par défaut : RTSP).
+Future<String> getReplayUri(
+  String recordingToken,
+  String deviceUrl,
+  OnvifCredentials creds, {
+  String protocol = 'RTSP',
+}) async {
+  final base = Uri.tryParse(deviceUrl);
+  if (base == null) throw OnvifException('URL invalide.');
+
+  final body =
+      '<GetReplayUri xmlns="http://www.onvif.org/ver10/replay/wsdl">'
+      '<StreamSetup>'
+      '<tt:Stream>RTP-Unicast</tt:Stream>'
+      '<tt:Transport><tt:Protocol>$protocol</tt:Protocol></tt:Transport>'
+      '</StreamSetup>'
+      '<RecordingToken>$recordingToken</RecordingToken>'
+      '</GetReplayUri>';
+
+  final root = await _eventsPost(
+    uri: base.replace(path: '/onvif/Replay'),
+    bodyXml: body,
+    soapAction: 'http://www.onvif.org/ver10/replay/wsdl/GetReplayUri',
+    creds: creds,
+  );
+
+  // URI dans tt:Uri (même forme que GetStreamUri).
+  for (final e in root.descendants.whereType<XmlElement>()) {
+    if (e.name.local == 'Uri') {
+      final raw = e.innerText.trim();
+      final parsed = Uri.tryParse(raw);
+      if (parsed != null &&
+          parsed.isScheme('rtsp') &&
+          creds.user.isNotEmpty &&
+          parsed.userInfo.isEmpty) {
+        return parsed
+            .replace(
+              userInfo:
+                  '${Uri.encodeComponent(creds.user)}:'
+                  '${Uri.encodeComponent(creds.password)}',
+            )
+            .toString();
+      }
+      return raw;
+    }
+  }
+  throw OnvifException(
+    'URL de rejeu absente — enregistrement peut-être purgé.',
+  );
+}
+
+/// Recherche COMPLÈTE en un appel : Find + pagination des résultats +
+/// EndSearch. Retourne des segments avec leur URL de rejeu RTSP prête
+/// à jouer (GetReplayUri par segment).
+Future<List<({DateTime start, DateTime end, String replayUrl})>>
+findReplaySegments(
+  String deviceUrl,
+  OnvifCredentials creds, {
+  required DateTime from,
+  required DateTime to,
+  String? sourceToken,
+}) async {
+  final search = await findRecordings(
+    deviceUrl,
+    creds,
+    from: from,
+    to: to,
+    sourceToken: sourceToken,
+  );
+
+  final all = [...search.segments];
+  var more = search.moreResults;
+  var guard = 0;
+  while (more && guard < 10) {
+    guard++;
+    final next = await getRecordingSearchResults(
+      search.searchToken,
+      deviceUrl,
+      creds,
+    );
+    all.addAll(next);
+    more = next.length >= 100; // lot plein → probablement plus
+  }
+
+  await endSearch(search.searchToken, deviceUrl, creds);
+
+  // Résout chaque URL de rejeu (limite le nombre pour éviter les
+  // dizaines de secondes sur les gros inventaires).
+  final top = all.take(20).toList();
+  return [
+    for (final seg in top)
+      (
+        start: seg.start,
+        end: seg.end,
+        replayUrl: await getReplayUri(seg.recordingToken, deviceUrl, creds),
+      ),
+  ];
+}
+
+/// Parse une réponse FindRecordings (token + segments + More).
+@visibleForTesting
+RecordingSearchResult parseRecordingSearchForTest(String xml) {
+  final doc = XmlDocument.parse(xml);
+
+  String token = '';
+  for (final e in doc.descendants.whereType<XmlElement>()) {
+    if (e.name.local == 'SearchToken' && token.isEmpty) {
+      token = e.innerText.trim();
+    }
+  }
+  if (token.isEmpty) {
+    throw OnvifException(
+      'Recherche refusée — service Recording Search absent de '
+      'cet appareil (repli constructeur utilisé).',
+    );
+  }
+
+  final segments = parseRecordingSegmentsForTest(xml);
+  final more = doc.descendants.whereType<XmlElement>().any(
+    (e) => e.name.local == 'MoreUpdates' || e.name.local == 'MoreResults',
+  );
+
+  return RecordingSearchResult(
+    searchToken: token,
+    segments: segments,
+    moreResults: more,
+  );
+}
+
+/// Parse les segments d'une réponse Find/GetRecordingSearchResults.
+@visibleForTesting
+List<RecordingSegment> parseRecordingSegmentsForTest(String xml) {
+  final doc = XmlDocument.parse(xml);
+  final segments = <RecordingSegment>[];
+
+  for (final item in doc.descendants.whereType<XmlElement>().where(
+    (e) => e.name.local == 'RecordingInformation',
+  )) {
+    String token = '';
+    String? source;
+    DateTime? start;
+    DateTime? end;
+
+    for (final e in item.descendants.whereType<XmlElement>()) {
+      switch (e.name.local) {
+        case 'RecordingToken':
+          if (token.isEmpty) token = e.innerText.trim();
+        case 'SourceToken':
+          source ??= e.innerText.trim();
+        case 'BeginDateTime':
+          start ??= DateTime.tryParse(e.innerText.trim());
+        case 'EndDateTime':
+          end ??= DateTime.tryParse(e.innerText.trim());
+      }
+    }
+
+    if (token.isEmpty || start == null || end == null) continue;
+    if (!end.isAfter(start)) continue;
+    segments.add(
+      RecordingSegment(
+        recordingToken: token,
+        sourceToken: source,
+        start: start,
+        end: end,
+      ),
+    );
+  }
+
+  segments.sort((a, b) => a.start.compareTo(b.start));
+  return segments;
+}
+
 /// Parse une réponse CreatePullPointSubscription (exposé aux tests).
 @visibleForTesting
 PullPointSubscription parsePullPointSubscriptionForTest(String xml) {
