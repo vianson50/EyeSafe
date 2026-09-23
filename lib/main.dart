@@ -4,6 +4,7 @@ import 'package:media_kit/media_kit.dart';
 
 import 'core/backend.dart';
 import 'core/push_service.dart';
+import 'core/sound_service.dart';
 import 'core/theme_settings.dart';
 import 'ui/splash_screen.dart';
 import 'ui/theme.dart';
@@ -17,6 +18,7 @@ Future<void> main() async {
   await initBackend();
   await PushService.init();
   await ThemeSettings.instance.load();
+  await SoundService.init();
   runApp(const EyeSafeApp());
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/sound_service.dart';
 import '../core/theme_settings.dart';
 import '../ui/data_scope.dart';
 import '../ui/theme.dart';
@@ -22,6 +23,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late bool _notifications = true;
+  late bool _sounds = true;
 
   @override
   void initState() {
@@ -31,7 +33,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadPrefs() async {
     final enabled = await PushToggle.load();
-    if (mounted) setState(() => _notifications = enabled);
+    if (!mounted) return;
+    setState(() {
+      _notifications = enabled;
+      _sounds = SoundService.enabled;
+    });
   }
 
   /// Change le mot de passe du compte connecté (vérifie l'ancien).
@@ -307,6 +313,55 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ],
                 ),
+              ),
+              // Sons de notification — bip local sur événements caméras.
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(
+                    Icons.volume_up_outlined,
+                    size: 20,
+                    color: _sounds
+                        ? AppColors.primary
+                        : AppColors.onSurfaceFaint,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sons d\'alerte',
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Bip sonore local quand une caméra détecte un '
+                          'mouvement ou une intrusion (même app ouverte).',
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _sounds,
+                    activeThumbColor: AppColors.primary,
+                    onChanged: (v) {
+                      setState(() => _sounds = v);
+                      SoundService.setEnabled(v);
+                      // Aperçu sonore à l'activation.
+                      if (v) SoundService.play(NotificationSound.alert);
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 28),
 

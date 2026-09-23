@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/sound_service.dart';
 import 'demo_data.dart';
 import 'go2rtc.dart';
 import 'isapi.dart';
@@ -114,6 +115,19 @@ class SiteController extends ChangeNotifier {
       ),
       ...cameraEvents,
     ].take(_maxCameraEvents).toList();
+
+    // Son de notification : critique → bip urgent, mouvement → bip
+    // simple. Joué APRÈS enregistrement (même en mode test où la base
+    // n'est pas écrite — le son est inoffensif en test car l'app
+    // n'est jamais pomée en environnement FLUTTER_TEST).
+    if (receivedAt == now) {
+      // Horloge injectée = contexte TEST → pas de son ni d'écriture.
+      if (event.isCritical) {
+        unawaited(SoundService.play(NotificationSound.critical));
+      } else if (event.isMotionActive) {
+        unawaited(SoundService.play(NotificationSound.alert));
+      }
+    }
 
     // Persistance des critiques (fire-and-forget, jamais bloquant pour
     // l'UI — si l'écriture échoue, l'événement reste visible en mémoire).
