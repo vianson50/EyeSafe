@@ -53,7 +53,7 @@ Installation : `adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-relea
 
 ```bash
 flutter analyze   # 0 problème attendu
-flutter test      # 114 tests (unitaires + widgets)
+flutter test      # 130 tests (unitaires + widgets)
 ```
 
 ---
@@ -73,7 +73,8 @@ lib/
 │   ├── site_controller.dart   # Contrôleur central (CRUD + temps réel
 │   │                          #   + autorisations serveur flux/PTZ)
 │   ├── onvif.dart             # ONVIF : WS-Discovery, profils, PTZ,
-│   │                          #   filtre IR (Imaging), Digest SHA-1
+│   │                          #   filtre IR (Imaging), événements PullPoint,
+│   │                          #   replay (Recording Search), Digest SHA-1
 │   ├── isapi.dart             # Hikvision ISAPI (Digest MD5, deviceInfo,
 │   │                          #   canaux, motion, PTZ caps)
 │   ├── brand_api.dart        # Axis VAPIX + Uniview LAPI (Digest MD5)
@@ -107,7 +108,7 @@ lib/
 go2rtc/                        # Serveur vidéo relais (config + scripts)
 supabase/                      # Migrations SQL, seed, scripts Python
 build_apk.sh                   # Build APK avec backend configuré
-test/                          # 114 tests (protocoles, UI, sécurité, thème)
+test/                          # 130 tests (protocoles, UI, sécurité, thème, événements)
 ```
 
 ---
@@ -121,8 +122,9 @@ test/                          # 114 tests (protocoles, UI, sécurité, thème)
 | Aperçus mosaïque (quota live + snapshots 5 s) | ✅ | ✅ |
 | Pavé PTZ (caméras motorisées, autorisé serveur) | ✅ | ✅ |
 | Filtre IR jour/nuit/auto (ONVIF Imaging) | ✅ | ✅ |
-| Replay des enregistrements (Hikvision ISAPI) | ✅ | ✅ |
+| Replay des enregistrements (ONVIF standard + repli ISAPI) | ✅ | ✅ |
 | Talk-back : parler dans la caméra (maintenir 🎙) | ✅ | ✅ |
+| Badge « MOUVEMENT » temps réel (événements ONVIF) | ✅ | ✅ |
 | Déconnexion caméra / équipement | ✅ | ✅ |
 | **Connecter des caméras** (7 méthodes, cf. §4) | ❌ | ✅ |
 | **Réglages réseau** ⚙ (quota live, STUN/TURN) | ❌ | ✅ |
@@ -235,24 +237,52 @@ Non intégrés (décision assumée, comme HCNetSDK/NetSDK) :
 ### Replay & talk-back (le direct ne suffit pas)
 
 Un service de surveillance sans **replay** est inutilisable ; le
-**talk-back** est un standard du marché. Les deux sont en place pour
-Hikvision (ISAPI) :
+**talk-back** est un standard du marché.
 
-- **Replay** — bouton 🕘 dans le direct : navigateur d'enregistrements
-  par jour (`/ISAPI/ContentMgmt/search`, segments avec heures et durées),
-  lecture via piste RTSP `Streaming/tracks/{id}?starttime=…` dans le
-  lecteur existant, badge `REPLAY HH:MM` + bouton « RETOUR DIRECT ».
-  Canal auto-détecté (« Canal 3 » → canal 3, sinon 1).
+- **Replay — ONVIF standard en priorité** (Recording Search
+  `ver10/search.wsdl`) : couvre **Dahua, Axis, Uniview, Hikvision**
+  d'un coup — bouton 🕘, navigateur de segments par jour (heures,
+  durées, badge « · ONVIF »), lecture RTSP via `GetReplayUri` dans le
+  lecteur existant, badge `REPLAY HH:MM` + « RETOUR DIRECT ».
+  Orchestration complète : FindRecordings → pagination → EndSearch,
+  cap 20 segments. **Repli automatique ISAPI** (`ContentMgmt/search` +
+  piste RTSP) pour les Hikvision sans le service standard.
 - **Talk-back** — bouton 🎙 : **maintenir pour parler**. Le micro est
   capturé en PCM 16 bits 8 kHz mono (annulation d'écho + réduction de
   bruit), encodé **G.711 μ-law** puis streamé vers
   `/ISAPI/System/Audio/channels/1/talk-data` (session `openTalk` en
   Digest, flux chunked, `DELETE openTalk` à la relâche). Le bouton passe
-  au vert pendant l'émission.
+  au vert pendant l'émission. (Hikvision uniquement — le talk-back
+  n'est pas standardisé ONVIF.)
 
 > Variance firmwares : les endpoints talk/search varient selon les
-> générations Hikvision — best-effort avec erreurs explicites ; valider
-> sur chaque modèle déployé. Autres marques : replay ONVIF à venir.
+> générations — best-effort avec erreurs explicites ; valider sur chaque
+> modèle déployé.
+
+### Événements temps réel (alertes intrusion/mouvement)
+
+Pipeline complet ONVIF PullPoint → anti-bruit → persistance :
+
+- **CameraEventPoller** par caméra RTSP avec identifiants : pull 3 s,
+  renouvellement à mi-vie, auto-réparation (re-souscription 30 s
+  après échec) — intégré à `SiteController` (diff d'inventaire,
+  arrêt au changement de site).
+- **Anti-bruit** (une caméra émet ~50 évts/min sinon) : dédup
+  30 s par (caméra, topic), priorisation (`isCritical` : tamper/
+  intrusion/VideoLoss → alertes ; mouvement → historique), résumé
+  « Activité multiple — N caméras ».
+- **Badge « MOUVEMENT »** animé sur les tuiles (état dérivé du
+  contrôleur central, fenêtre de grâce 34 s anti-clignotement).
+- **Persistance** : les critiques uniquement → table `camera_events`
+  (migration 10 : RLS tenant, index site+temps, Realtime, purge 7 j
+  en conservant les preuves intrusion/tamper) — le mouvement reste en
+  mémoire.
+- **Parseur robuste** : `SimpleItem` (canonique) ET `SimpleItemValue`
+  (variant firmware), items State/IsMotion/IsActive, valeurs
+  true/yes/1, sujets hiérarchiques décomposés (`topicSegments`).
+
+> Limite : le poller ne tourne que lorsqu'une app (technicien) est
+> ouverte. Pour du 24/7 sans app → Edge Function worker (sujet distinct).
 
 ### Architecture recommandée (terrain)
 
@@ -276,6 +306,10 @@ Hikvision (ISAPI) :
 - `tickets`, `maintenance_visits`, `alerts`, `notifications`
 - `stream_audit` — journal des accès aux flux, avec colonne `action`
   (`stream` / `ptz`) — migrations 7 et 8
+- `camera_events` — événements critiques persistés (intrusion, tamper…)
+  avec RLS tenant, Realtime et purge 7 j — migration 10
+- `camera_event_subscriptions` — état des souscriptions PullPoint
+  (usage interne app) — migration 10
 
 > 💡 La **migration 8 est auto-suffisante** : elle inclut la table et
 > `get_stream_url` (migration 7) au cas où cette dernière n'aurait pas été
@@ -428,9 +462,10 @@ la latence sub-secondaire.
 
 | Priorité | Sujet | État |
 |---|---|---|
-| 🔴 Critique | **Replay / enregistrements** | ✅ Hikvision ISAPI (`ContentMgmt/search` + pistes RTSP) — navigateur de segments par jour, lecture media_kit, badge REPLAY + retour direct. Autres marques : à venir (ONVIF Replay) |
-| 🔴 Critique | **Talk-back audio** | ✅ Hikvision ISAPI (openTalk + talk-data chunked) — micro G.711 μ-law 8 kHz, maintenir le bouton 🎙 pour parler. Permission RECORD_AUDIO |
-| 🟠 Important | Événements ONVIF PullPoint | ⏳ à venir — alertes temps réel fiables (mouvement/intrusion) |
+| 🔴 Critique | **Replay / enregistrements** | ✅ **ONVIF standard** (Recording Search — Dahua, Axis, Uniview, Hikvision) avec orchestration complète + **repli ISAPI** (Hikvision sans service standard). Navigateur de segments par jour, badge « · ONVIF », lecture media_kit, RETOUR DIRECT |
+| 🔴 Critique | **Talk-back audio** | ✅ Hikvision ISAPI (openTalk + talk-data chunked) — micro G.711 μ-law 8 kHz, maintenir le bouton 🎙. Permission RECORD_AUDIO (le talk-back n'est pas standardisé ONVIF) |
+| 🟠 Important | Événements ONVIF PullPoint | ✅ **livré** — pollers 3 s par caméra, anti-bruit (dédup 30 s + priorisation critique/mouvement + résumé multi-caméras), badge MOUVEMENT temps réel, persistance des critiques (`camera_events` + Realtime, migration 10) |
+| 🟠 Important | Alertes push 24/7 sans app ouverte | ⏳ le poller tourne côté app (technicien connecté) — un worker Edge Function qui poll est la suite logique |
 | 🟠 Important | Marques cloud-only (Ezviz, Tapo, Xiaomi) | 🟨 contournement : activer le RTSP local dans leur app (Tapo : réglages avancés ; Ezviz : selon modèles) puis URL SIMPLE. Intégration directe = leurs SDK cloud, hors périmètre actuel |
 | 🟡 Moyen | Coffre-fort credentials | ⏳ les URLs RTSP restent en clair dans `equipment.stream_url` (limite documentée §5) ; verrouillage complet = passer par le relais + REVOKE |
 | 🟡 Moyen | Mise à jour firmware distante | ⏳ ISAPI l'expose — après validation du talk-back/replay sur le terrain |
