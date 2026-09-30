@@ -2479,7 +2479,18 @@ class _CameraTileState extends State<_CameraTile> {
   void initState() {
     super.initState();
     _probe();
-    _resolveAuthorization();
+    // Autorisation différée : évite 8 requêtes RPC simultanées quand la
+    // mosaïque charge (×2 caméras = beaucoup de charge). Le direct
+    // plein écran refait la vérification de toute façon — la tuile
+    // n'a besoin de l'URL autorisée que pour les aperçus go2rtc.
+    final url = widget.camera.streamUrl;
+    if (url != null && WhepClient.deriveWhepUrl(url) != null) {
+      // Flux go2rtc : l'aperçu nécessite l'URL autorisée → résoudre.
+      _resolveAuthorization();
+    } else {
+      // RTSP direct : pas d'aperçu mosaïque possible → juste la sonde.
+      _authorizedUrl = url;
+    }
   }
 
   /// Vérifie l'accès au flux côté SERVEUR avant tout aperçu.
