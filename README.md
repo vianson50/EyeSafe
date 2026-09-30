@@ -124,7 +124,7 @@ test/                          # 130 tests (protocoles, UI, sécurité, thème, 
 | Filtre IR jour/nuit/auto (ONVIF Imaging) | ✅ | ✅ |
 | Replay des enregistrements (ONVIF standard + repli ISAPI) | ✅ | ✅ |
 | Talk-back : parler dans la caméra (maintenir 🎙) | ✅ | ✅ |
-| Badge « MOUVEMENT » temps réel (événements ONVIF) | ✅ | ✅ |
+| Badge « MOUVEMENT » temps réel + son (événements ONVIF) | ✅ | ✅ |
 | Déconnexion caméra / équipement | ✅ | ✅ |
 | **Connecter des caméras** (7 méthodes, cf. §4) | ❌ | ✅ |
 | **Réglages réseau** ⚙ (quota live, STUN/TURN) | ❌ | ✅ |
@@ -465,14 +465,20 @@ la latence sub-secondaire.
 | 🔴 Critique | **Replay / enregistrements** | ✅ **ONVIF standard** (Recording Search — Dahua, Axis, Uniview, Hikvision) avec orchestration complète + **repli ISAPI** (Hikvision sans service standard). Navigateur de segments par jour, badge « · ONVIF », lecture media_kit, RETOUR DIRECT |
 | 🔴 Critique | **Talk-back audio Hikvision** | ✅ Hikvision ISAPI (openTalk + talk-data chunked) — micro G.711 μ-law 8 kHz, maintenir le bouton 🎙. Permission RECORD_AUDIO |
 | 🔴 Critique | **Talk-back multi-marques** | ⏳ Dahua, Axis, Uniview non couverts — le talk-back n'est pas standardisé ONVIF : adapter par marque (Dahua : HTTP audio API `audio.cgi` en PCM/G.711 ; Axis : VAPIX `aximg-cgi/audio.cgi` ; Uniview : LAPI audio). Suivre le patron G.711 déjà en place |
-| 🔴 Critique | **Validation terrain (matériel réel)** | ⏳ AUCUN protocole n'a été testé sur caméra réelle — replay ONVIF, événements PullPoint, talk-back, PTZ, IR, Digest MD5/SHA-1 sont implémentés best-effort sur base de spécifications théoriques. Points de risque : variance firmware par marque/modèle, parseurs XML tolerants mais non vérifiés. **Bloquant pour la commercialisation** : tester chaque feature sur chaque marque du parc avant déploiement client |
+| 🔴 Critique | **Validation terrain (matériel réel)** | 🟨 **en cours** — Dahua NVR validé en production (connexion 8 caméras + direct RTSP + correctif latence low-latency libmpv). Reste à valider : replay ONVIF, événements PullPoint, talk-back Hikvision, PTZ, IR sur chaque marque du parc |
 | 🔴 Critique | **Alertes push intrusion (app fermée)** | ⏳ Une intrusion/tamper détectée n'alerte personne si aucune app n'est ouverte — le poller tourne côté app technicien uniquement. Solution : Edge Function Supabase (worker 24/7 qui poll les caméras + FCM vers les clients du site). L'infrastructure est prête : FCM câblé, table `camera_events` + Realtime en place — il ne manque que le worker |
-| 🟠 Important | Événements ONVIF PullPoint | ✅ **livré** — pollers 3 s par caméra, anti-bruit (dédup 30 s + priorisation critique/mouvement + résumé multi-caméras), badge MOUVEMENT temps réel, persistance des critiques (`camera_events` + Realtime, migration 10) |
+| 🟠 Important | Événements ONVIF PullPoint | ✅ **livré** — pollers 3 s par caméra, anti-bruit (dédup 30 s + priorisation critique/mouvement + résumé multi-caméras), badge MOUVEMENT temps réel, sons de notification, persistance des critiques (`camera_events` + Realtime, migration 10) |
 | 🟠 Important | Marques cloud-only (Ezviz, Tapo, Xiaomi) | 🟨 contournement : activer le RTSP local dans leur app (Tapo : réglages avancés ; Ezviz : selon modèles) puis URL SIMPLE. Intégration directe = leurs SDK cloud, hors périmètre actuel |
 | 🟡 Moyen | Coffre-fort credentials | ⏳ les URLs RTSP restent en clair dans `equipment.stream_url` (limite documentée §5) ; verrouillage complet = passer par le relais + REVOKE |
 | 🟡 Moyen | Mise à jour firmware distante | ⏳ ISAPI l'expose — après validation du talk-back/replay sur le terrain |
 | 🟡 Moyen | Emails transactionnels | 🟨 SMTP intégré Supabase actif (limité 2-3/h) — prévoir domaine + Resend/Brevo à la montée en charge |
 | 🟢 Long terme | ONVIF Profile V | 👀 veille — notre stack s'y aligne déjà (sortant + WebRTC) |
+
+> **Terrain (30 sept. 2026)** : premier déploiement réel validé — NVR Dahua 8 canaux
+> (« Boutique », Koumassi) connecté par le client en autonomie complète
+> (création compte + installation + branchement caméras via NVR LOCAL).
+> Direct RTSP fonctionnel avec correctif latence (low-latency libmpv).
+> Reste à tester : replay, événements, talk-back, PTZ sur ce Dahua.
 
 > Variance firmwares : le talk-back et la recherche d'enregistrements
 > ISAPI peuvent varier selon les générations Hikvision — best-effort avec
