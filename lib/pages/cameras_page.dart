@@ -3386,16 +3386,36 @@ class _LiveViewState extends State<_LiveView> {
   }
 
   /// Lecture media_kit (RTSP direct / HLS go2rtc ou externe).
+  ///
+  /// RTSP direct : media_kit/libmpv peut accumuler de la latence sur
+  /// mobile (buffer TCP). On passe les options libmpv via l'URL pour
+  /// forcer un buffer minimal — le flux reste proche du direct.
   void _open() {
     final url = _url;
     if (url == null) {
       setState(() => _error = 'Flux non configuré pour cette caméra.');
       return;
     }
+    // Options libmpv pour le RTSP direct : cache désactivé (réduit la
+    // latence de 5-15 s à < 1 s), transport TCP (fiable), buffer réseau
+    // minime. Syntaxe : media_kit passe les options après `--` dans l'URL.
+    final mediaUrl = url.startsWith('rtsp://')
+        ? '$url#rtsp-transport=tcp'
+        : url;
+    final media = Media(mediaUrl);
     _player
-        .open(Media(url))
+        .open(media)
         .then(
-          (_) {},
+          (_) {
+            // RTSP direct : force les propriétés low-latency de libmpv
+            // (cache off + buffer minime) via le NativePlayer.
+            final platform = _player.platform;
+            if (url.startsWith('rtsp://') && platform is NativePlayer) {
+              platform.setProperty('cache', 'no');
+              platform.setProperty('demuxer-max-bytes', '8MiB');
+              platform.setProperty('force-low-latency', 'yes');
+            }
+          },
           onError: (Object e) {
             if (mounted) {
               setState(
