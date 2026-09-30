@@ -3742,7 +3742,12 @@ class _LiveViewState extends State<_LiveView> {
   void initState() {
     super.initState();
     _start();
-    _detectPtz();
+    // PTZ : différé de 2 s — laisse la priorité au démarrage vidéo.
+    // (sur mobile, _detectPtz fait du HTTP ONVIF qui peut prendre 5 s et
+    // retarder l'affichage de la première image.)
+    Timer(const Duration(seconds: 2), () {
+      if (mounted) _detectPtz();
+    });
   }
 
   @override
