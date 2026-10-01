@@ -3374,6 +3374,11 @@ class _LiveViewState extends State<_LiveView> {
   /// Stratégie de lecture : WebRTC (WHEP) si l'URL est un flux go2rtc,
   /// sinon media_kit (RTSP direct ou HLS externe). Repli HLS automatique
   /// si le WebRTC échoue (NAT restrictif, serveur ancien).
+  ///
+  /// ⚠️ En RÉSEAU LOCAL (IP privée 192.168.x.x), le WebRTC n'apporte rien
+  /// (le HLS est déjà rapide en LAN) et sa négociation peut échouer avec
+  /// certains go2rtc → écran noir pendant 7 s. On passe DIRECTEMENT en
+  /// HLS sur le LAN, WebRTC uniquement pour le cloud/VPS (IP publique).
   void _start() {
     final url = _url;
     if (url == null) {
@@ -3383,7 +3388,17 @@ class _LiveViewState extends State<_LiveView> {
       });
       return;
     }
-    final whepUrl = _webrtcFailed ? null : WhepClient.deriveWhepUrl(url);
+
+    // Réseau local → HLS direct (pas de négociation WebRTC inutile).
+    final uri = Uri.tryParse(url);
+    final isLocalhost =
+        uri != null && uri.host.startsWith('192.168.') ||
+        uri!.host.startsWith('10.') ||
+        uri.host.startsWith('172.');
+
+    final whepUrl = (_webrtcFailed || isLocalhost)
+        ? null
+        : WhepClient.deriveWhepUrl(url);
     if (whepUrl != null) {
       unawaited(_startWebrtc(url, whepUrl));
     } else {

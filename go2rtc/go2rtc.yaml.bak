@@ -1,0 +1,69 @@
+# ═══════════════════════════════════════════════════════════════
+# go2rtc — serveur vidéo EYESAFE
+#
+# Récupère les flux des caméras (RTSP) et les rediffuse en HLS
+# vers l'application (stream_url = http://<ip>:1984/api/stream.m3u8?src=…)
+#
+# Démarrage : cd go2rtc && ./restart.sh
+# Interface admin : http://192.168.100.14:1984
+# ═══════════════════════════════════════════════════════════════
+
+api:
+  listen: ":1984"
+  # ── PRODUCTION : décommente et change ces identifiants ! ──
+  # username: eyesafe
+  # password: ChangeMoi-Serveur2026!
+
+rtsp:
+  listen: ":8554"
+
+ffmpeg:
+  bin: /usr/bin/ffmpeg
+
+# ═════════════════════════════════════════════════
+# MODE « CLOUD (P2P) » — appairage par code boîtier
+#
+# Architecture (façon Hik-Connect, sur TON cloud) :
+#   1. Un go2rtc tourne dans TON cloud (VPS) — le « cloud EyeSafe ».
+#   2. Chaque boîtier de site pousse ses flux vers ce cloud sous des
+#      noms préfixés par son code d'appairage (ex: EYE7F3K2-1, EYE7F3K2-2).
+#      (reverse SSH / WireGuard / tailscale — connexion TOUJOURS
+#      sortante depuis le site, aucun port ouvert chez le client)
+#   3. L'app : onglet CLOUD (P2P) → code de l'étiquette → les caméras
+#      du boîtier apparaissent. Zéro config côté client.
+#
+# Exemple côté cloud (ce fichier, sur le VPS) :
+#   streams:
+#     EYE7F3K2-1:
+#       - rtsp:// via le tunnel du boîtier EYE7F3K2
+#     EYE7F3K2-2:
+#       - rtsp:// via le tunnel du boîtier EYE7F3K2
+# ═════════════════════════════════════════════════
+
+# ───────────────────────────────────────────────────────
+# FLUX DE DÉMONSTRATION
+# (ffmpeg lit des flux HLS de test publics et alimente go2rtc —
+#  remplace-les par tes vraies caméras ci-dessous)
+# ───────────────────────────────────────────────────────────────
+streams:
+  cocody_entree:
+    - ffmpeg:https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8#video=copy#rawargs=-an
+
+  cocody_parking:
+    - ffmpeg:https://test-streams.mux.dev/pts_shift/master.m3u8#video=copy#rawargs=-an
+
+  # ─────────────────────────────────────────────────────────────
+  # VRAIES CAMÉRAS — décommente et adapte (IP + identifiants NVR)
+  # ─────────────────────────────────────────────────────────────
+  # Hikvision (caméra ou canal NVR — 101 = canal 1 flux principal) :
+  # cocody_entree:
+  #   - rtsp://admin:MotDePasseNVR@192.168.1.64:554/Streaming/Channels/101
+  #
+  # Dahua (channel=2 → canal 2) :
+  # cocody_parking:
+  #   - rtsp://admin:MotDePasseNVR@192.168.1.108:554/cam/realmonitor?channel=2&subtype=0
+  #
+  # Si le flux caméra n'est pas lisible directement (codec exotique),
+  # passe-le par ffmpeg :
+  # cocody_entree:
+  #   - ffmpeg:rtsp://admin:pass@192.168.1.64:554/Streaming/Channels/101#video=h264#audio=aac
