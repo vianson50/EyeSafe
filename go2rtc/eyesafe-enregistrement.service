@@ -1,0 +1,36 @@
+# ═══════════════════════════════════════════════════════════
+# eyesafe-enregistrement.service — Service systemd pour
+# l'enregistrement continu des caméras sur disque local.
+#
+# Installation sur le boîtier :
+#   sudo cp eyesafe-enregistrement.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now eyesafe-enregistrement
+#
+# Vérifier :
+#   sudo systemctl status eyesafe-enregistrement
+#   journalctl -u eyesafe-enregistrement -f
+# ═══════════════════════════════════════════════════════════
+
+[Unit]
+Description=EyeSafe — Enregistrement continu caméras sur disque
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/go2rtc/enregistrement.sh
+Restart=always
+RestartSec=30
+User=root
+
+# Redémarre automatiquement si le disque est plein
+# (les anciens fichiers sont purgés par le script)
+
+# Journalisation
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=eyesafe-rec
+
+[Install]
+WantedBy=multi-user.target

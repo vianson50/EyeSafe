@@ -1,0 +1,68 @@
+# ═══════════════════════════════════════════════════════════
+# go2rtc — VPS OVH Cloud (relais central multi-clients)
+#
+# Rôle :
+#   - Relaye le direct des boîtiers vers les apps (WebRTC < 1 s)
+#   - Point d'entrée unique pour tous tes clients
+#   - Aucun enregistrement ici (tout est local chez le client)
+#
+# Installation sur le VPS OVH :
+#   1. Télécharger go2rtc : github.com/AlexxIT/go2rtc/releases
+#   2. Placer ce fichier : /opt/go2rtc/go2rtc.yaml
+#   3. Ouvrir les ports : 1984 (API), 8554 (RTSP)
+#   4. Démarrer : systemctl enable --now go2rtc
+#
+# Connexion des boîtiers :
+#   Chaque boîtier pousse ses flux vers ce VPS via un tunnel
+#   WireGuard ou reverse SSH (connexion TOUJOURS sortante depuis
+#   le site — aucun port ouvert chez le client).
+# ═══════════════════════════════════════════════════════════
+
+api:
+  listen: ":1984"
+  # ⚠️ Identifiants OBLIGATOIRES sur le VPS public !
+  username: eyesafe
+  password: ChangeMoi-VPS-OVH-2026!
+
+rtsp:
+  listen: ":8554"
+
+ffmpeg:
+  bin: /usr/bin/ffmpeg
+
+# ───────────────────────────────────────────────────────────────
+# FLUX DES SITES — chaque boîtier y pousse ses caméras
+# via le tunnel (WireGuard ou reverse SSH)
+#
+# Convention : {CODE_BOITIER}-{CANAL}
+#   BOUTIQUE-1 = boîtier « Boutique » (Koumassi), caméra 1
+#   RESTO-1    = boîtier « Restaurant » (Plateau), caméra 1
+#
+# Les boîtiers poussent leurs flux vers rtsp://VPS:8554/{nom}
+# ───────────────────────────────────────────────────────────────
+streams:
+  # Site « Boutique » (Koumassi) — sous-flux pour le direct mobile
+  BOUTIQUE-1:
+    - rtsp://10.0.0.2:8554/BOUTIQUE-1   # 10.0.0.2 = IP WireGuard du boîtier
+  BOUTIQUE-2:
+    - rtsp://10.0.0.2:8554/BOUTIQUE-2
+  BOUTIQUE-3:
+    - rtsp://10.0.0.2:8554/BOUTIQUE-3
+  BOUTIQUE-4:
+    - rtsp://10.0.0.2:8554/BOUTIQUE-4
+
+  # Site « Restaurant » (exemple — ajouter tes autres clients)
+  # RESTO-1:
+  #   - rtsp://10.0.0.3:8554/RESTO-1
+  # RESTO-2:
+  #   - rtsp://10.0.0.3:8554/RESTO-2
+
+# ───────────────────────────────────────────────────────────────
+# APP EYESAFE — mode CLOUD (P2P)
+#
+# Dans l'app : Caméras → Connecter un NVR → CLOUD (P2P)
+# URL du cloud : https://ton-vps.ovh.net:1984
+# Code d'appairage : BOUTIQUE (le préfixe des flux ci-dessus)
+#
+# L'app filtre les flux par préfixe → seul ce boîtier apparaît.
+# ───────────────────────────────────────────────────────────────

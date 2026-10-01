@@ -1,0 +1,69 @@
+# ═══════════════════════════════════════════════════════════
+# go2rtc — Boîtier local de site (avec enregistrement disque)
+#
+# Rôle :
+#   1. Récupère les flux RTSP des caméras du site
+#   2. Enregistre en continu sur disque dur (segmenté 10 min)
+#   3. Relaye le direct vers le VPS OVH (tunnel sortant)
+#   4. Replay local pour l'app (ONVIF Recording Search)
+#
+# Installation :
+#   - OS : Debian 12 ou Ubuntu 22.04 (minimal)
+#   - Disque dur monté sur /mnt/recordings
+#   - go2rtc : télécharger depuis github.com/AlexxIT/go2rtc
+#   - ffmpeg : apt install ffmpeg
+#
+# Démarrage : systemctl enable --now go2rtc
+# ═══════════════════════════════════════════════════════════
+
+api:
+  listen: ":1984"
+  # ⚠️ PRODUCTION : mets des identifiants !
+  username: eyesafe
+  password: ChangeMoi-Boitier2026!
+
+rtsp:
+  listen: ":8554"
+
+ffmpeg:
+  bin: /usr/bin/ffmpeg
+
+# ───────────────────────────────────────────────────────────────
+# CAMÉRAS DU SITE — adapte les URLs RTSP à ton installation
+# ───────────────────────────────────────────────────────────────
+streams:
+  # Format : nom_du_flux (préfixé par le code boîtier pour le CLOUD P2P)
+  # Sous-flux (léger, pour le direct mobile)
+  BOUTIQUE-1:
+    - rtsp://admin:MotDePasse@192.168.100.72:554/cam/realmonitor?channel=1&subtype=1
+  BOUTIQUE-2:
+    - rtsp://admin:MotDePasse@192.168.100.72:554/cam/realmonitor?channel=2&subtype=1
+  BOUTIQUE-3:
+    - rtsp://admin:MotDePasse@192.168.100.72:554/cam/realmonitor?channel=3&subtype=1
+  BOUTIQUE-4:
+    - rtsp://admin:MotDePasse@192.168.100.72:554/cam/realmonitor?channel=4&subtype=1
+
+  # Flux principal (haute qualité, pour l'enregistrement)
+  BOUTIQUE-1-HQ:
+    - rtsp://admin:MotDePasse@192.168.100.72:554/cam/realmonitor?channel=1&subtype=0
+  BOUTIQUE-2-HQ:
+    - rtsp://admin:MotDePasse@192.168.100.72:554/cam/realmonitor?channel=2&subtype=0
+  BOUTIQUE-3-HQ:
+    - rtsp://admin:MotDePasse@192.168.100.72:554/cam/realmonitor?channel=3&subtype=0
+  BOUTIQUE-4-HQ:
+    - rtsp://admin:MotDePasse@192.168.100.72:554/cam/realmonitor?channel=4&subtype=0
+
+# ───────────────────────────────────────────────────────────────
+# ENREGISTREMENT CONTINU SUR DISQUE
+#
+# ffmpeg segmente les enregistrements en fichiers de 10 minutes
+# dans /mnt/recordings/CAMÉRA/AAAA-MM-JJ/HH-MM.mp4
+#
+# Prérequis : disque monté sur /mnt/recordings
+# Créer les dossiers : mkdir -p /mnt/recordings/{BOUTIQUE-1-HQ,...}
+#
+# ⚠️ go2rtc n'a pas d'enregistrement intégré — on utilise un
+# service systemd séparé (voir ci-dessous) avec ffmpeg.
+# ───────────────────────────────────────────────────────────────
+
+# La rotation/purge est gérée par un script cron (voir plus bas).
