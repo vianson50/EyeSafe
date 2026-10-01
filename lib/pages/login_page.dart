@@ -47,21 +47,13 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final client = Supabase.instance.client;
       if (_isSignUp) {
-        final response = await client.auth.signUp(
+        await client.auth.signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text,
           data: {'full_name': _nameController.text.trim()},
         );
-        if (response.session == null) {
-          // Confirmation email requise par le projet Supabase.
-          if (mounted) {
-            setState(() {
-              _isSignUp = false;
-              _info =
-                  'Compte créé. Vérifiez votre boîte mail pour confirmer votre email, puis connectez-vous.';
-            });
-          }
-        }
+        // Confirmation email désactivée côté Supabase : la session est
+        // renvoyée directement et la navigation est gérée par AuthGate.
       } else {
         await client.auth.signInWithPassword(
           email: _emailController.text.trim(),

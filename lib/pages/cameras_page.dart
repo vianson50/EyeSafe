@@ -3375,10 +3375,10 @@ class _LiveViewState extends State<_LiveView> {
   /// sinon media_kit (RTSP direct ou HLS externe). Repli HLS automatique
   /// si le WebRTC échoue (NAT restrictif, serveur ancien).
   ///
-  /// ⚠️ En RÉSEAU LOCAL (IP privée 192.168.x.x), le WebRTC n'apporte rien
-  /// (le HLS est déjà rapide en LAN) et sa négociation peut échouer avec
-  /// certains go2rtc → écran noir pendant 7 s. On passe DIRECTEMENT en
-  /// HLS sur le LAN, WebRTC uniquement pour le cloud/VPS (IP publique).
+  /// ⚠️ En RÉSEAU LOCAL (IP privée), le WebRTC est systématiquement DÉSACTIVÉ :
+  /// sa négociation échoue souvent en LAN (ICE mismatch) → image noire après
+  /// 1-2 secondes. Le HLS est fiable et rapide en local — pas de raison de
+  /// prendre le risque.
   void _start() {
     final url = _url;
     if (url == null) {
@@ -3389,14 +3389,17 @@ class _LiveViewState extends State<_LiveView> {
       return;
     }
 
-    // Réseau local → HLS direct (pas de négociation WebRTC inutile).
+    // Réseau local → TOUJOURS HLS (le WebRTC devient noir en LAN).
     final uri = Uri.tryParse(url);
-    final isLocalhost =
-        uri != null && uri.host.startsWith('192.168.') ||
-        uri!.host.startsWith('10.') ||
-        uri.host.startsWith('172.');
+    final host = uri?.host ?? '';
+    final isLocalNetwork =
+        host.startsWith('192.168.') ||
+        host.startsWith('10.') ||
+        host.startsWith('172.') ||
+        host.startsWith('127.') ||
+        host == 'localhost';
 
-    final whepUrl = (_webrtcFailed || isLocalhost)
+    final whepUrl = (_webrtcFailed || isLocalNetwork)
         ? null
         : WhepClient.deriveWhepUrl(url);
     if (whepUrl != null) {
