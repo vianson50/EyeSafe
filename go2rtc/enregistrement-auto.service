@@ -1,0 +1,31 @@
+# Service systemd — Enregistrement automatique des caméras
+# (lit les caméras depuis Supabase, démarre/arrête les
+# enregistrements dynamiquement)
+#
+# Installation :
+#   sudo cp enregistrement-auto.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now enregistrement-auto
+
+[Unit]
+Description=EyeSafe — Enregistrement auto des caméras (Supabase → disque)
+After=network-online.target mnt-recordings.mount
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/go2rtc/enregistrement-auto.sh
+Restart=always
+RestartSec=30
+User=root
+
+# Environnement (variables accessibles au script)
+Environment=SUPABASE_URL=https://rmhftiafvboelygsundz.supababase.co
+
+# Journalisation
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=eyesafe-rec-auto
+
+[Install]
+WantedBy=multi-user.target
