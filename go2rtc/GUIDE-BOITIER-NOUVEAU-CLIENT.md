@@ -1,190 +1,246 @@
 # ═══════════════════════════════════════════════════════════
-# GUIDE ULTRA-SIMPLE — Installer le boîtier d'enregistrement
-# chez un nouveau client
+# GUIDE COMPLET — Enregistrements chez un nouveau client
+#
+# 3 situations possibles — choisis celle de ton client :
+#
+#  ┌─────────────────────────────────────────────────────┐
+#  │  SITUATION A : Le client a un NVR/DVR → RIEN À FAIRE │
+#  │  SITUATION B : Caméras IP seules → boîtier + disque  │
+#  │  SITUATION C : VPS OVH pour le direct à distance       │
+#  └─────────────────────────────────────────────────────┘
 # ═══════════════════════════════════════════════════════════
-
-## 📋 Ce qu'il te faut avant de commencer
-
-| Matériel | Où l'acheter | Prix approx. |
-|---|---|---|
-| Boîtier mini PC (Beelink S12 Mini) | Jumia / AliExpress | 45 000 FCFA |
-| Disque dur externe USB (WD Purple 2 To) | Boutique informatique | 35 000 FCFA |
-| Câble Ethernet (RJ45) | Boutique informatique | 2 000 FCFA |
-| **Écran + clavier** (juste pour l'installation) | Tu en as déjà | — |
-| **Ton ordinateur portable** | Tu en as déjà | — |
 
 ---
 
-## 🔌 ÉTAPE 1 — Brancher le boîtier physiquement (5 min)
+## 🎯 D'ABORD — Identifier la situation (30 secondes)
+
+Demande-toi :
+
+**« Est-ce que le client a une boîte qui enregistre déjà ? »**
+
+| Ce que le client a | Situation | Guide |
+|---|---|---|
+| Un **NVR** (Network Video Recorder — boîte avec disque dur, toutes les caméras branchées dessus) | **A** | ↓ Section A |
+| Un **DVR** (Digital Video Recorder — caméras analogiques coaxiales branchées dessus) | **A** | ↓ Section A |
+| Un **NVR hybride** (accepte IP + coaxial) | **A** | ↓ Section A |
+| Des **caméras IP Wi-Fi/Ethernet** sans boîte d'enregistrement | **B** | ↓ Section B |
+| Des **caméras Wi-Fi grand public** (Tapo, Ezviz, Xiaomi…) | **B** (limité) | ↓ Section B |
+| Rien encore — tu installes tout | **Ton choix** | A ou B |
+
+> 💡 **Comment reconnaître un NVR/DVR** : c'est une boîte noire avec
+> des prises pour les caméras à l'arrière, un disque dur à l'intérieur,
+> souvent la marque Hikvision ou Dahua. Elle est branchée à un écran
+> ou au routeur.
+
+---
+
+# ═══════════════════════════════════════════════════════════
+# SECTION A — Le client a un NVR/DVR (le PLUS SIMPLE)
+# ═══════════════════════════════════════════════════════════
+
+## ✅ Bonne nouvelle : RIEN à installer !
+
+Le NVR/DVR **enregistre déjà** sur son propre disque dur. L'app
+EyeSafe lit les enregistrements via **ONVIF Replay** (bouton 🕘).
+
+```
+NVR/DVR du client (ex: Dahua, Hikvision)
+    │
+    ├── Enregistre sur SON disque dur interne ✅
+    ├── Fournit le flux RTSP à l'app ✅
+    └── L'app lit le replay via ONVIF (bouton 🕘) ✅
+```
+
+## 📋 Ce que tu vérifies (5 minutes)
+
+### A1. Le NVR a un disque dur
+
+**Dans l'interface du NVR** (écran branché ou navigateur web) :
+
+| Marque | Où regarder |
+|---|---|
+| **Dahua** | Main Menu → Info → HDD/Hard Disk |
+| **Hikvision** | Configuration → Storage → Storage Management |
+| **Autre** | Cherche "Disque dur" ou "HDD" ou "Storage" |
+
+→ Doit afficher un disque avec de l'espace libre.
+→ Si **pas de disque** : achètes-en un (WD Purple 2 To ~35 000 FCFA)
+   et installes-le dans le NVR (souvent une simple vis + glisser).
+
+### A2. L'enregistrement est activé
+
+**Dans l'interface du NVR** :
+
+| Marque | Où |
+|---|---|
+| **Dahua** | Main Menu → Manage → Record Config → cocher toutes les caméras |
+| **Hikvision** | Configuration → Record → Schedule → cocher "Continuous" pour toutes |
+| **Autre** | Cherche "Recording Schedule" ou "Record Plan" |
+
+→ Mode : **Continu** (24/7) ou **Mouvement** (seulement les événements)
+→ **Toutes les caméras** doivent être cochées
+
+### A3. La rétention (combien de jours)
+
+**Dans l'interface du NVR** :
+- Cherche "Rétention" ou "Overwrite" ou "Recycle"
+- Mets **30 jours** (ou selon la taille du disque)
+
+> 📊 **Règle approximative** : 2 To ≈ 30 jours pour 8 caméras
+> en sous-flux (qualité normale). Pour le flux principal (HD),
+> compte 2 To ≈ 7-10 jours pour 8 caméras.
+
+### A4. Branche le NVR au routeur (si pas déjà fait)
+
+- Câble Ethernet du NVR → routeur du client
+- Le NVR obtient une IP automatiquement (DHCP)
+- **Note l'IP** (affichée dans le NVR : Info → Network → TCP/IP)
+
+## 📱 Connecter les caméras dans l'app (2 minutes)
+
+1. Ouvre l'app en tant que **technicien**
+2. Va sur le site du client (sélecteur en haut)
+3. **Caméras → Connecter un NVR**
+4. Choisis **NVR LOCAL**
+5. Entre :
+   - IP du NVR (ex: `192.168.100.72`)
+   - Port : `554` (ou `80` si le NVR l'exige)
+   - Utilisateur + mot de passe du NVR
+   - Nombre de canaux (ex: 8)
+6. **Créer les caméras** → elles apparaissent ✅
+
+## 🕘 Revoir les enregistrements (déjà implémenté !)
+
+1. Tape une caméra → le direct s'ouvre
+2. Tape le bouton **🕘** (en haut à droite)
+3. Choisis un jour → les segments apparaissent
+4. Tape un segment → il se rejoue ✅
+
+> 💡 Si le bouton 🕘 ne montre rien : vérifie A1 (disque) et
+> A2 (enregistrement activé) dans le NVR.
+
+## 💰 Coût pour le client
+
+| Ce qu'il a déjà | Ce qu'il manque | Coût |
+|---|---|---|
+| NVR + disque + caméras | Rien | **0 FCFA** ✅ |
+| NVR sans disque | Disque WD Purple 2 To | 35 000 FCFA |
+| Ni NVR ni caméras | NVR complet (Dahua 8ch + disque) | ~150 000 FCFA |
+
+---
+
+# ═══════════════════════════════════════════════════════════
+# SECTION B — Caméras IP seules (sans NVR) → boîtier
+# ═══════════════════════════════════════════════════════════
+
+## 📋 Ce qu'il te faut
+
+| Matériel | Prix approx. |
+|---|---|
+| Boîtier mini PC (Beelink S12 Mini / Android TV Box) | 10-45 000 FCFA |
+| Disque dur externe USB 3.0 (WD Purple 2 To) | 35 000 FCFA |
+| Câble Ethernet | 2 000 FCFA |
+| Écran + clavier (pour l'installation seulement) | — |
+
+---
+
+## 🔌 ÉTAPE B1 — Brancher le boîtier physiquement (5 min)
 
 ```
    Routeur du client
         │
-        │ (câble Ethernet — relie le boîtier au routeur)
+        │ (câble Ethernet)
         │
    ┌────┴─────┐     ┌──────────────┐
    │  Boîtier │─────│ Disque dur   │
-   │  (miniPC)│ USB │ (USB 3.0)    │
+   │  (miniPC)│ USB │ externe USB  │
    └────┬─────┘     └──────────────┘
         │
    ┌────┴─────┐
-   │ Écran +  │  (juste pour l'installation,
-   │ clavier  │   tu l'enlèves après)
+   │ Écran +  │  (juste pour installer,
+   │ clavier  │   tu débranches après)
    └──────────┘
 ```
 
-1. Branche le **câble Ethernet** du boîtier au **routeur du client**
+1. Branche le **câble Ethernet** du boîtier au **routeur**
 2. Branche le **disque dur USB** sur le boîtier
-3. Branche un **écran (câble HDMI)** et un **clavier USB** sur le boîtier
+3. Branche un **écran (HDMI)** et un **clavier USB**
 4. Branche l'**alimentation** → le boîtier démarre
 
 ---
 
-## 🖥️ ÉTAPE 2 — Première ouverture du boîtier (10 min)
+## 🖥️ ÉTAPE B2 — Premier démarrage du boîtier (10 min)
 
-Quand le boîtier démarre pour la première fois :
+### B2a. Installe le système (si le boîtier est vide)
 
-### 2a. Installe le système (Debian/Ubuntu)
+1. Télécharge [Ubuntu Server](https://ubuntu.com/download/server) sur une clé USB
+2. Branche la clé sur le boîtier → démarre
+3. Suis l'installation à l'écran
+4. Nom d'utilisateur : `eyesafe` / mot de passe : quelque chose de simple
 
-Si le boîtier est **vide** (pas de système) :
-1. Télécharge [Debian 12](https://www.debian.org/download) ou [Ubuntu Server](https://ubuntu.com/download/server) sur une clé USB
-2. Branche la clé USB sur le boîtier
-3. Démarre → suis l'installation à l'écran
-4. Quand il demande un **nom d'utilisateur** → tape `eyesafe`
-5. Quand il demande un **mot de passe** → tape un mot de passe simple (note-le !)
-
-> 💡 **Alternative** : certains boîtiers (Beelink) viennent avec Windows préinstallé.
-> Pour ce guide, on préfère Linux (Debian/Ubuntu). Si ton boîtier a Windows,
-> dis-moi et je te fais un guide Windows.
-
-### 2b. Trouve l'adresse IP du boîtier
+### B2b. Trouve l'adresse IP du boîtier
 
 Sur l'écran branché au boîtier, tape :
-
 ```
 ip addr show
 ```
-
-Cherche la ligne qui ressemble à ça :
-```
-inet 192.168.1.150/24
-```
-
-**Note cette adresse** (ex: `192.168.1.150`) — c'est l'IP de ton boîtier.
-
-> 💡 **Autre méthode** : regarde dans l'interface du routeur du client
-> (http://192.168.1.1) → liste des appareils connectés → trouve le boîtier.
+Cherche `inet 192.168.1.XXX` → **note cette IP**
 
 ---
 
-## 📱 ÉTAPE 3 — Se connecter au boîtier depuis TON ordinateur (5 min)
+## 📱 ÉTAPE B3 — Se connecter au boîtier depuis TON PC (5 min)
 
-Maintenant tu vas **contrôler le boîtier depuis ton PC portable** (plus confortable que l'écran branché).
-
-### Sur ton PC (Linux/Mac) :
-
-Ouvre un **terminal** et tape :
+Sur **ton PC portable** (connecté au même WiFi que le boîtier) :
 
 ```
-ssh eyesafe@192.168.1.150
+ssh eyesafe@192.168.1.XXX
 ```
+→ Tape le mot de passe → tu es dans le boîtier ✅
 
-*(Remplace `192.168.1.150` par l'IP que tu as notée à l'étape 2b)*
-
-- Il demande un mot de passe → tape celui que tu as choisi à l'étape 2a
-- Si ça marche, tu vois : `eyesafe@boitier:~$`
-
-**✅ Tu es maintenant DANS le boîtier, depuis ton PC !**
-
-### Sur ton PC (Windows) :
-
-Télécharge et installe [PuTTY](https://www.putty.org/) :
-1. Ouvre PuTTY
-2. Dans "Host Name" → tape `eyesafe@192.168.1.150`
-3. Clique "Open"
-4. Tape le mot de passe
+> 💡 **Sur Windows** : télécharge [PuTTY](https://www.putty.org/)
+> et mets l'IP dans "Host Name"
 
 ---
 
-## 📦 ÉTAPE 4 — Copier les fichiers vers le boîtier (5 min)
+## 📦 ÉTAPE B4 — Envoyer les fichiers vers le boîtier (2 min)
 
-Les fichiers `enregistrement-auto.sh` et `enregistrement-auto.service` sont dans **ton projet** sur ton PC. Il faut les envoyer vers le boîtier.
-
-### Sur ton PC (dans le projet eyesafe), ouvrez un NOUVEAU terminal et tape :
+Sur **ton PC** (dans le projet eyesafe), dans un NOUVEAU terminal :
 
 ```
-scp go2rtc/enregistrement-auto.sh go2rtc/enregistrement-auto.service eyesafe@192.168.1.150:/tmp/
+scp go2rtc/enregistrement-auto.sh go2rtc/enregistrement-auto.service eyesafe@192.168.1.XXX:/tmp/
 ```
-
-*(Encore : remplace l'IP par celle de ton boîtier)*
-
-- Il demande le mot de passe → tape-le
-- Les fichiers sont maintenant sur le boîtier dans `/tmp/`
 
 ---
 
-## ⚙️ ÉTAPE 5 — Configurer le boîtier (10 min)
+## ⚙️ ÉTAPE B5 — Configurer le boîtier (10 min, une seule fois)
 
-Maintenant, retourne dans le terminal **SSH** (celui où tu es connecté au boîtier) et tape les commandes **une par une** :
+Dans le terminal **SSH** (connecté au boîtier), tape chaque commande :
 
-### 5a. Installe les outils nécessaires
-
+### B5a. Installe les outils
 ```
 sudo apt update
-```
-*(demande ton mot de passe)*
-
-```
 sudo apt install -y ffmpeg curl python3
 ```
-*(ça prend 2-3 minutes — attends)*
 
-### 5b. Prépare le disque dur
+### B5b. Prépare le disque dur
 
-⚠️ **ATTENTION** : cette étape EFFACE le disque dur. Assure-toi qu'il est vide ou que tu n'as rien dessus.
+⚠️ Ça **efface** le disque — assure-toi qu'il est vide !
 
-Trouve le nom de ton disque :
 ```
 lsblk
 ```
+→ Trouve ton disque externe (celui qui fait ~1.8T, souvent `sdb`)
 
-Tu verras quelque chose comme :
-```
-NAME   MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
-sda      8:0    0 456.1G  0 disk
-├─sda1   8:1    0   512M  0 part /boot/efi
-└─sda2   8:2    0 455.5G  0 part /
-sdb      8:16   0   1.8T  0 disk              ← C'EST ÇA TON DISQUE (sdb)
-└─sdb1   8:17   0   1.8T  0 part
-```
-
-Le **disque externe** est celui qui fait ~1.8T (2 To) — souvent `sdb` ou `sdc`.
-
-**Formate le disque** (remplace `sdb1` par ce que tu as trouvé) :
 ```
 sudo mkfs.ext4 /dev/sdb1
-```
-*(tape `y` si il demande confirmation)*
-
-**Crée le dossier et monte le disque** :
-```
 sudo mkdir -p /mnt/recordings
 sudo mount /dev/sdb1 /mnt/recordings
-```
-
-**Fais en sorte que le disque se monte tout seul au démarrage** :
-```
 echo '/dev/sdb1 /mnt/recordings ext4 defaults,nofail 0 2' | sudo tee -a /etc/fstab
-```
-
-**Vérifie que ça marche** :
-```
 df -h /mnt/recordings
 ```
-→ Doit afficher ~1.8T disponible ✅
+→ Doit afficher ~1.8T ✅
 
-### 5c. Installe le script d'enregistrement
-
+### B5c. Installe le script
 ```
 sudo mkdir -p /opt/go2rtc
 sudo cp /tmp/enregistrement-auto.sh /opt/go2rtc/
@@ -192,116 +248,103 @@ sudo cp /tmp/enregistrement-auto.service /etc/systemd/system/
 sudo chmod +x /opt/go2rtc/enregistrement-auto.sh
 ```
 
-### 5d. ⚠️ LE SEUL truc à changer : le SITE_ID
+### B5d. ⚠️ Change le SITE_ID (le SEUL truc à modifier)
 
-Ouvre le script pour le modifier :
 ```
 sudo nano /opt/go2rtc/enregistrement-auto.sh
 ```
-
-Avec les **flèches du clavier**, descends jusqu'à la ligne 24 environ :
+Descends à la ligne ~24 :
 ```
 SITE_ID="2711ccb8-d629-442b-b884-a6be8e40cc2c"
 ```
+→ Remplace par l'UUID du site de **ce client**
 
-**Change cette valeur** par l'UUID du site de ton nouveau client.
+**Pour trouver l'UUID** (sur ton PC) :
+```
+curl -s -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtaGZ0aWFmdmJvZWx5Z3N1bmR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzQ0MjAsImV4cCI6MjEwNTA1MDQyMH0._s9P6tJrv2DiSQdGp6rYH3rN7sc8--Twt1-qllvYjVU" "https://rmhftiafvboelygsundz.supabase.co/rest/v1/sites?select=id,name" | python3 -m json.tool
+```
 
-> **Comment trouver l'UUID ?** Sur TON PC (pas le boîtier), dans le projet :
-> ```
-> curl -s -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtaGZ0aWFmdmJvZWx5Z3N1bmR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzQ0MjAsImV4cCI6MjEwNTA1MDQyMH0._s9P6tJrv2DiSQdGp6rYH3rN7sc8--Twt1-qllvYjVU" \
->   "https://rmhftiafvboelygsundz.supabase.co/rest/v1/sites?select=id,name" \
->   | python3 -m json.tool
-> ```
-> → Copie le `id` du site du client.
+Sauvegarde : `Ctrl+O` → `Entrée` → `Ctrl+X`
 
-Une fois modifié :
-- `Ctrl + O` (sauvegarder)
-- `Entrée` (confirmer)
-- `Ctrl + X` (quitter)
-
-### 5e. Démarre le service
-
+### B5e. Démarre le service
 ```
 sudo systemctl daemon-reload
 sudo systemctl enable --now enregistrement-auto
 ```
 
-### 5f. Vérifie que ça marche !
-
+### B5f. Vérifie
 ```
 sudo journalctl -u enregistrement-auto -f
 ```
+→ Doit afficher `▶ DÉMARRAGE : Caméra 1...` pour chaque caméra ✅
 
-Tu dois voir apparaître :
-```
-[2026-10-01 14:30:00] [enregistrement-auto] Démarrage — site ...
-[2026-10-01 14:30:00] [enregistrement-auto] Caméras actives : 8
-[2026-10-01 14:30:00] [enregistrement-auto] ▶ DÉMARRAGE : Caméra 1
-[2026-10-01 14:30:00] [enregistrement-auto] ▶ DÉMARRAGE : Caméra 2
-...
-```
-
-**Appuie sur `Ctrl + C` pour arrêter de regarder les logs.**
-
-Vérifie que les fichiers apparaissent sur le disque :
 ```
 ls /mnt/recordings/
 ```
-→ Tu dois voir : `Caméra 1/`, `Caméra 2/`, etc.
+→ Tu dois voir les dossiers `Caméra 1/`, `Caméra 2/`, etc.
 
 ---
 
-## ✅ ÉTAPE 6 — C'est fini !
+## ✅ ÉTAPE B6 — C'est fini !
 
-Tu peux maintenant :
-1. **Débrancher l'écran et le clavier** du boîtier
-2. Poser le boîtier quelque part de discret (étagère, derrière le routeur)
-3. Il tourne tout seul, 24/7, sans que personne n'y touche
-
----
-
-## 🔄 Pour un DEUXIÈME client (la prochaine fois)
-
-1. Achète un autre boîtier + disque dur
-2. Fais **exactement les mêmes étapes** (1 à 6)
-3. La seule différence : change le `SITE_ID` (étape 5d) par l'UUID du 2e site
-4. Fini !
+1. **Débranche l'écran et le clavier**
+2. Pose le boîtier quelque part de discret
+3. Il tourne 24/7 tout seul
 
 ---
 
-## 🩺 Si ça ne marche pas
+# ═══════════════════════════════════════════════════════════
+# SECTION C — VPS OVH (pour le direct < 1 s à distance)
+# ═══════════════════════════════════════════════════════════
+
+> ⚠️ Le VPS est **optionnel** — il améliore la vitesse du direct
+> à distance mais n'est pas obligatoire pour enregistrer.
+
+## Ce que le VPS apporte
+
+| Sans VPS | Avec VPS OVH |
+|---|---|
+| Direct à distance : lent (RTSP direct) | Direct à distance : **< 1 seconde** (WebRTC) |
+| Accès distant : redirection de port sur le routeur | **Aucun port ouvert** (tunnel sortant) |
+| Aperçus mosaïque : non (RTSP direct) | Aperçus mosaïque : **oui** (WebRTC) |
+
+## Pour l'installer
+
+Vois le guide détaillé : **`GUIDE-OVH.md`** dans ce même dossier.
+
+---
+
+# ═══════════════════════════════════════════════════════════
+# 📊 TABLEAU RÉCAPITULATIF — Quelle situation, quelle action ?
+# ═══════════════════════════════════════════════════════════
+
+| Situation client | Matériel à acheter | Installation | Enregistrement |
+|---|---|---|---|
+| **A : NVR/DVR avec disque** | Rien | 5 min (vérifs NVR) | NVR enregistre ✅ |
+| **A : NVR sans disque** | Disque 2 To (35 000 F) | 10 min (installer le disque) | NVR enregistre ✅ |
+| **B : Caméras IP seules** | Boîtier + disque (80 000 F) | 35 min (guide Section B) | Boîtier enregistre ✅ |
+| **B : Caméras Wi-Fi (Tapo…)** | Boîtier + disque (80 000 F) | 35 min + activer RTSP | Boîtier enregistre ✅ |
+| **C : + VPS OVH** | VPS (4 000 F/mois) | 30 min (GUIDE-OVH.md) | N'importe laquelle |
+
+---
+
+# ═══════════════════════════════════════════════════════════
+# 🩺 DÉPANNAGE GÉNÉRAL
+# ═══════════════════════════════════════════════════════════
+
+## Section A (NVR/DVR)
 
 | Problème | Solution |
 |---|---|
-| Je ne peux pas me connecter en SSH | Vérifie que le boîtier et ton PC sont sur le **même réseau** (même WiFi/routeur) |
-| "curl: (7) Failed to connect" | Le boîtier n'a pas internet — vérifie le câble Ethernet au routeur |
-| Aucun fichier n'apparaît | Tape `sudo journalctl -u enregistrement-auto -n 50` et envoie-moi le résultat |
-| "ffmpeg: Connection refused" | La caméra est injoignable — vérifie que le direct marche dans l'app |
-| Le disque ne monte pas au boot | Vérifie l'étape 5b (fstab) et le câble USB |
+| Le bouton 🕘 ne montre rien | Vérifie le disque + l'enregistrement dans le NVR (A1, A2) |
+| Le direct ne marche pas | Vérifie le câble Ethernet NVR-routeur + l'IP |
+| Le replay montre des trous | L'enregistrement était coupé — vérifie le planning |
 
----
+## Section B (Boîtier)
 
-## 📱 Résumé en image
-
-```
-TON PC                    BOÎTIER CHEZ LE CLIENT
-──────                    ───────────────────────
-                          [écran + clavier branchés
-                           juste pour installer]
-    │
-    │ (WiFi du client)
-    │
-    └── ssh eyesafe@IP ──► [terminal du boîtier]
-    │                        │
-    ├── scp fichiers ─────► [fichiers copiés]
-    │                        │
-    │                        ├── apt install ffmpeg
-    │                        ├── monter disque
-    │                        ├── systemctl start
-    │                        │
-    │                        ▼
-    │                    📼 ENREGISTRE TOUS SEUL
-    │
-    └── Dans l'APP : les caméras connectées
-        → le boîtier les détecte → enregistre
-```
+| Problème | Solution |
+|---|---|
+| SSH ne marche pas | Ton PC et le boîtier doivent être sur le **même réseau** |
+| Aucun fichier sur le disque | `sudo journalctl -u enregistrement-auto -n 50` et envoie-moi le résultat |
+| ffmpeg s'arrête sans arrêt | Caméra injoignable — vérifie l'URL RTSP dans l'app |
+| Disque plein | Réduis `RETENTION_DAYS=15` ou achètes un plus gros disque |
