@@ -21,10 +21,10 @@ extension EquipmentCategoryX on EquipmentCategory {
   };
 
   Color get color => switch (this) {
-    EquipmentCategory.camera => const Color(0xFF6D3BD7),
-    EquipmentCategory.recorder => const Color(0xFF0891B2),
-    EquipmentCategory.storage => const Color(0xFF0C9E6C),
-    EquipmentCategory.network => const Color(0xFFD97706),
+    EquipmentCategory.camera => const Color(0xFF3B82F6),
+    EquipmentCategory.recorder => const Color(0xFF9CA3AF),
+    EquipmentCategory.storage => const Color(0xFFD4D4D4),
+    EquipmentCategory.network => const Color(0xFFFACC15),
   };
 
   String get dbValue => switch (this) {
@@ -107,9 +107,9 @@ extension TicketStatusX on TicketStatus {
   };
 
   Color get color => switch (this) {
-    TicketStatus.pending => const Color(0xFFD97706),
-    TicketStatus.enRoute => const Color(0xFF6D3BD7),
-    TicketStatus.resolved => const Color(0xFF0C9E6C),
+    TicketStatus.pending => const Color(0xFFFACC15),
+    TicketStatus.enRoute => const Color(0xFF3B82F6),
+    TicketStatus.resolved => const Color(0xFF9CA3AF),
   };
 
   static TicketStatus fromDb(String value) => switch (value) {

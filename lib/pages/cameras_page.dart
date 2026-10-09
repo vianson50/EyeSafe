@@ -2378,6 +2378,7 @@ class _PtzPad extends StatelessWidget {
     required double x,
     required double y,
     double zoom = 0,
+    Color? accent,
   }) {
     return Listener(
       onPointerDown: (_) => onMove(x, y, zoom: zoom),
@@ -2387,11 +2388,17 @@ class _PtzPad extends StatelessWidget {
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
+          color: accent != null
+              ? accent.withValues(alpha: 0.18)
+              : Colors.black.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+          border: Border.all(
+            color: accent != null
+                ? accent.withValues(alpha: 0.75)
+                : Colors.white.withValues(alpha: 0.25),
+          ),
         ),
-        child: Icon(icon, size: 19, color: Colors.white),
+        child: Icon(icon, size: 19, color: accent ?? Colors.white),
       ),
     );
   }
@@ -2420,7 +2427,12 @@ class _PtzPad extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _dirButton(icon: Icons.keyboard_arrow_left, x: -0.5, y: 0),
-              _dirButton(icon: Icons.my_location, x: 0, y: 0),
+              _dirButton(
+                icon: Icons.my_location,
+                x: 0,
+                y: 0,
+                accent: AppColors.focus,
+              ),
               _dirButton(icon: Icons.keyboard_arrow_right, x: 0.5, y: 0),
             ],
           ),
@@ -2471,9 +2483,9 @@ class _CameraTileState extends State<_CameraTile> {
   String? _authorizedUrl;
   bool _accessRefused = false;
 
-  static const _navy = Color(0xFF0D1727);
-  static const _navyDeep = Color(0xFF0A1220);
-  static const _cyan = Color(0xFF22D3EE);
+  static const _navy = Color(0xFF000000);
+  static const _navyDeep = Color(0xFF0A0A0A);
+  static const _cyan = Color(0xFF3B82F6);
 
   @override
   void initState() {
@@ -2903,7 +2915,7 @@ class _CameraTileState extends State<_CameraTile> {
                         color: Colors.black.withValues(alpha: 0.45),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: const Color(0xFF34D399).withValues(alpha: 0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                         ),
                       ),
                       child: Row(
@@ -2915,7 +2927,7 @@ class _CameraTileState extends State<_CameraTile> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: _livePreviewWidget != null
-                                  ? const Color(0xFF34D399)
+                                  ? Colors.white
                                   : Colors.white38,
                             ),
                           ),
@@ -2931,7 +2943,7 @@ class _CameraTileState extends State<_CameraTile> {
                               weight: FontWeight.w800,
                               letterSpacing: 1,
                               color: _livePreviewWidget != null
-                                  ? const Color(0xFF34D399)
+                                  ? Colors.white
                                   : Colors.white60,
                             ),
                           ),
@@ -3043,7 +3055,7 @@ class _TileWebrtcPreviewState extends State<_TileWebrtcPreview> {
   Widget build(BuildContext context) {
     final renderer = _renderer;
     if (renderer == null || renderer.srcObject == null) {
-      return Container(color: const Color(0xFF0A1220));
+      return Container(color: const Color(0xFF000000));
     }
     return RTCVideoView(
       renderer,
@@ -3373,12 +3385,12 @@ class _LiveViewState extends State<_LiveView> {
 
   /// Stratégie de lecture : WebRTC (WHEP) si l'URL est un flux go2rtc,
   /// sinon media_kit (RTSP direct ou HLS externe). Repli HLS automatique
-  /// si le WebRTC échoue (NAT restrictif, serveur ancien).
+  /// si le WebRTC échoue (NAT restrictif, serveur ancien, ICE impossible).
   ///
-  /// ⚠️ En RÉSEAU LOCAL (IP privée), le WebRTC est systématiquement DÉSACTIVÉ :
-  /// sa négociation échoue souvent en LAN (ICE mismatch) → image noire après
-  /// 1-2 secondes. Le HLS est fiable et rapide en local — pas de raison de
-  /// prendre le risque.
+  /// Le WebRTC est tenté AUSSI en réseau local : les vignettes de la
+  /// mosaïque utilisent déjà WHEP en LAN avec succès, et le lecteur
+  /// media_kit (HLS) a provoqué des écrans noirs sur certains Android.
+  /// En cas d'échec, `_fallbackToHls` bascule automatiquement sur HLS.
   void _start() {
     final url = _url;
     if (url == null) {
@@ -3389,19 +3401,8 @@ class _LiveViewState extends State<_LiveView> {
       return;
     }
 
-    // Réseau local → TOUJOURS HLS (le WebRTC devient noir en LAN).
-    final uri = Uri.tryParse(url);
-    final host = uri?.host ?? '';
-    final isLocalNetwork =
-        host.startsWith('192.168.') ||
-        host.startsWith('10.') ||
-        host.startsWith('172.') ||
-        host.startsWith('127.') ||
-        host == 'localhost';
-
-    final whepUrl = (_webrtcFailed || isLocalNetwork)
-        ? null
-        : WhepClient.deriveWhepUrl(url);
+    final whepUrl =
+        _webrtcFailed ? null : WhepClient.deriveWhepUrl(url);
     if (whepUrl != null) {
       unawaited(_startWebrtc(url, whepUrl));
     } else {
@@ -3886,7 +3887,7 @@ class _LiveViewState extends State<_LiveView> {
                   color: Colors.black.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: const Color(0xFF22D3EE).withValues(alpha: 0.6),
+                    color: const Color(0xFF3B82F6).withValues(alpha: 0.6),
                   ),
                 ),
                 child: const Row(
@@ -3894,7 +3895,7 @@ class _LiveViewState extends State<_LiveView> {
                     Icon(
                       Icons.play_circle_outline,
                       size: 15,
-                      color: Color(0xFF22D3EE),
+                      color: Color(0xFF3B82F6),
                     ),
                     SizedBox(width: 6),
                     Text(
@@ -3902,7 +3903,7 @@ class _LiveViewState extends State<_LiveView> {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF22D3EE),
+                        color: Color(0xFF3B82F6),
                       ),
                     ),
                   ],
@@ -3920,13 +3921,13 @@ class _LiveViewState extends State<_LiveView> {
                   color: Colors.black.withValues(alpha: 0.55),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.25),
+                    color: AppColors.record.withValues(alpha: 0.6),
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.history,
                   size: 17,
-                  color: Colors.white70,
+                  color: AppColors.record,
                 ),
               ),
             ),
@@ -3940,19 +3941,19 @@ class _LiveViewState extends State<_LiveView> {
                 height: 34,
                 decoration: BoxDecoration(
                   color: _talking
-                      ? const Color(0xFF34D399).withValues(alpha: 0.35)
+                      ? const Color(0xFF3B82F6).withValues(alpha: 0.35)
                       : Colors.black.withValues(alpha: 0.55),
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: _talking
-                        ? const Color(0xFF34D399)
+                        ? const Color(0xFF3B82F6)
                         : Colors.white.withValues(alpha: 0.25),
                   ),
                 ),
                 child: Icon(
                   _talking ? Icons.mic : Icons.mic_none_outlined,
                   size: 17,
-                  color: _talking ? const Color(0xFF34D399) : Colors.white70,
+                  color: _talking ? const Color(0xFF3B82F6) : Colors.white70,
                 ),
               ),
             ),
@@ -4046,7 +4047,7 @@ class _LiveViewState extends State<_LiveView> {
                                   : Icons.contrast_outlined,
                               size: 14,
                               color: _irMode == OnvifIrCutMode.off
-                                  ? const Color(0xFF22D3EE)
+                                  ? Colors.white
                                   : Colors.white70,
                             ),
                             const SizedBox(width: 6),
@@ -4071,10 +4072,16 @@ class _LiveViewState extends State<_LiveView> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF34D399).withValues(alpha: 0.15),
+                      color: (_replayLabel != null
+                              ? AppColors.record
+                              : Colors.white)
+                          .withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: const Color(0xFF34D399).withValues(alpha: 0.6),
+                        color: (_replayLabel != null
+                                ? AppColors.record
+                                : Colors.white)
+                            .withValues(alpha: 0.6),
                       ),
                     ),
                     child: Text(
@@ -4092,7 +4099,9 @@ class _LiveViewState extends State<_LiveView> {
                         letterSpacing: 1,
                         color: _mode == _StreamMode.error
                             ? Colors.white54
-                            : const Color(0xFF34D399),
+                            : (_replayLabel != null
+                                  ? AppColors.record
+                                  : Colors.white),
                       ),
                     ),
                   ),

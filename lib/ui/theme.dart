@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// Palette adaptative Clair/Sombre.
+/// Palette NOIR & BLANC + accents sémantiques.
+///
+/// Fond et texte sont monochromes (noir en mode sombre — le mode par
+/// défaut de l'app —, blanc en mode clair). Les couleurs d'accent ont
+/// une SIGNIFICATION fixe, définie par le produit :
+///   • [focus]  (jaune) — mise au point / recentrage ;
+///   • [record] (rouge) — enregistrement / replay ;
+///   • [primary]/[options] (bleu) — options & paramètres, actions ;
+///   • [secondary]/[menu] (gris) — menus secondaires, éléments neutres.
 ///
 /// Les couleurs sont des **getters** pilotés par [darkMode] : tous les
 /// widgets qui référencent `AppColors.…` s'adaptent au thème sans
@@ -9,7 +17,7 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static bool _dark = false;
+  static bool _dark = true;
 
   /// État sombre global — positionné par ThemeSettings au démarrage et
   /// à chaque bascule (y compris suivie du système).
@@ -17,60 +25,77 @@ class AppColors {
 
   static bool get isDark => _dark;
 
-  // ── Fonds & surfaces ──
+  // ── Fonds & surfaces — NOIR / BLANC ──
   static Color get background =>
-      _dark ? const Color(0xFF0F1420) : const Color(0xFFFFFFFF);
+      _dark ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
   static Color get sidebar =>
-      _dark ? const Color(0xFF121826) : const Color(0xFFFAFBFD);
+      _dark ? const Color(0xFF0A0A0A) : const Color(0xFFFAFAFA);
   static Color get surfaceLow =>
-      _dark ? const Color(0xFF161D2E) : const Color(0xFFF7F8FB);
+      _dark ? const Color(0xFF0F0F0F) : const Color(0xFFF5F5F5);
   static Color get surface =>
-      _dark ? const Color(0xFF1B2334) : const Color(0xFFF2F4F8);
+      _dark ? const Color(0xFF141414) : const Color(0xFFEFEFEF);
   static Color get surfaceHigh =>
-      _dark ? const Color(0xFF232D42) : const Color(0xFFEAEDF3);
+      _dark ? const Color(0xFF1E1E1E) : const Color(0xFFE5E5E5);
 
-  /// Cartes / dialogs / surfaces « blanches » du mode clair.
-  static Color get card => _dark ? const Color(0xFF161D2E) : Colors.white;
+  /// Cartes / dialogs — noir profond en sombre, blanc pur en clair.
+  static Color get card => _dark ? const Color(0xFF0D0D0D) : Colors.white;
 
   static Color get terminal =>
-      _dark ? const Color(0xFF0C111C) : const Color(0xFFF8FAFC);
+      _dark ? const Color(0xFF050505) : const Color(0xFFF7F7F7);
 
-  // ── Textes ──
+  // ── Textes — blanc / noir ──
   static Color get onSurface =>
-      _dark ? const Color(0xFFE7EAF2) : const Color(0xFF161B26);
+      _dark ? const Color(0xFFFFFFFF) : const Color(0xFF0A0A0A);
   static Color get onSurfaceVariant =>
-      _dark ? const Color(0xFFA6ADC0) : const Color(0xFF5E6575);
+      _dark ? const Color(0xFFB8B8B8) : const Color(0xFF4A4A4A);
   static Color get onSurfaceFaint =>
-      _dark ? const Color(0xFF7A8199) : const Color(0xFF8B92A3);
+      _dark ? const Color(0xFF7A7A7A) : const Color(0xFF6E6E6E);
 
   // ── Contours ──
   static Color get outline =>
-      _dark ? const Color(0xFF2C3750) : const Color(0xFFD8DCE4);
+      _dark ? const Color(0xFF2A2A2A) : const Color(0xFFD4D4D4);
   static Color get outlineVariant =>
-      _dark ? const Color(0xFF232D42) : const Color(0xFFE7EAF0);
+      _dark ? const Color(0xFF1C1C1C) : const Color(0xFFE8E8E8);
 
-  // ── Marque (légèrement éclaircie en sombre pour le contraste) ──
+  // ── BLEU : options / paramètres / actions principales ──
   static Color get primary =>
-      _dark ? const Color(0xFF8B6BE8) : const Color(0xFF6D3BD7);
+      _dark ? const Color(0xFF3B82F6) : const Color(0xFF1D4ED8);
   static Color get primaryDim =>
-      _dark ? const Color(0xFF7A56D6) : const Color(0xFF592CB4);
+      _dark ? const Color(0xFF2563EB) : const Color(0xFF1E40AF);
   static Color get primaryContainer =>
-      _dark ? const Color(0xFF2A2350) : const Color(0xFFEFE8FF);
+      _dark ? const Color(0xFF0E1E38) : const Color(0xFFDBEAFE);
   static Color get onPrimaryContainer =>
-      _dark ? const Color(0xFFC9BAFF) : const Color(0xFF3A1691);
+      _dark ? const Color(0xFFBFDBFE) : const Color(0xFF1E3A8A);
 
+  // ── GRIS : menus secondaires / éléments neutres ──
   static Color get secondary =>
-      _dark ? const Color(0xFF38B6D6) : const Color(0xFF0891B2);
+      _dark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
   static Color get secondaryContainer =>
-      _dark ? const Color(0xFF113646) : const Color(0xFFE0F5FA);
+      _dark ? const Color(0xFF1F1F1F) : const Color(0xFFF3F4F6);
 
   static Color get tertiary =>
-      _dark ? const Color(0xFF34C98E) : const Color(0xFF0C9E6C);
+      _dark ? const Color(0xFFD4D4D4) : const Color(0xFF525252);
   static Color get tertiaryContainer =>
-      _dark ? const Color(0xFF123B2B) : const Color(0xFFDFF6EC);
+      _dark ? const Color(0xFF1A1A1A) : const Color(0xFFF0F0F0);
 
+  // ── ROUGE : enregistrement / erreurs ──
   static Color get error =>
-      _dark ? const Color(0xFFF06A6A) : const Color(0xFFDC2626);
+      _dark ? const Color(0xFFEF4444) : const Color(0xFFDC2626);
+
+  /// Bouton d'enregistrement / replay (rouge).
+  static Color get record => error;
+
+  // ── JAUNE : mise au point / recentrage ──
+  static Color get focus =>
+      _dark ? const Color(0xFFFACC15) : const Color(0xFFCA8A04);
+
+  // ── Alias sémantiques (lisibilité du code appelant) ──
+
+  /// Options / paramètres → bleu.
+  static Color get options => primary;
+
+  /// Menus secondaires → gris.
+  static Color get menu => secondary;
 }
 
 const _jakarta = 'Plus Jakarta Sans';

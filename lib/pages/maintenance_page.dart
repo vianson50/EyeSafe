@@ -231,7 +231,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF6D3BD7), Color(0xFF592CB4)],
+          colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -294,7 +294,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
               Switch(
                 value: _reminders,
                 activeThumbColor: Colors.white,
-                activeTrackColor: const Color(0xFF4CD7F6),
+                activeTrackColor: const Color(0xFF3B82F6),
                 inactiveThumbColor: Colors.white,
                 inactiveTrackColor: Colors.white.withValues(alpha: 0.25),
                 onChanged:

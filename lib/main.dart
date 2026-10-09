@@ -13,11 +13,14 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
-    SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent),
+    SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
   );
   await initBackend();
   await PushService.init();
   await ThemeSettings.instance.load();
+  // Identité visuelle « tout noir » : on force le mode sombre quel que
+  // soit le thème du téléphone (noir + blanc, accents bleu/jaune/rouge/gris).
+  await ThemeSettings.instance.setMode(ThemeMode.dark);
   await SoundService.init();
   runApp(const EyeSafeApp());
 }

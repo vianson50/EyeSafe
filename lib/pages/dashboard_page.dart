@@ -89,14 +89,14 @@ class DashboardPage extends StatelessWidget {
                 children: [
                   _StatCard(
                     icon: Icons.videocam_outlined,
-                    color: const Color(0xFF6D3BD7),
+                    color: AppColors.primary,
                     value: '$onlineCameras/$onlineCameras',
                     label: 'CAMÉRAS EN LIGNE',
                     compact: compactStats,
                   ),
                   _StatCard(
                     icon: Icons.support_agent_outlined,
-                    color: const Color(0xFFD97706),
+                    color: AppColors.record,
                     value: '$openTickets',
                     label: 'TICKETS OUVERTS',
                     onTap: onOpenSupport,
@@ -104,7 +104,7 @@ class DashboardPage extends StatelessWidget {
                   ),
                   _StatCard(
                     icon: Icons.event_available_outlined,
-                    color: const Color(0xFF0891B2),
+                    color: AppColors.focus,
                     value: nextVisit == null
                         ? '—'
                         : 'J+${nextVisit.date.difference(DateTime.now()).inDays}',
@@ -114,7 +114,7 @@ class DashboardPage extends StatelessWidget {
                   ),
                   _StatCard(
                     icon: Icons.verified_user_outlined,
-                    color: const Color(0xFF0C9E6C),
+                    color: AppColors.secondary,
                     value: 'ACTIF',
                     label: 'CONTRAT MAINTENANCE',
                     onTap: onOpenMaintenance,
@@ -218,8 +218,9 @@ class DashboardPage extends StatelessWidget {
   }
 
   Widget _systemStatusCard(SiteController data) {
-    const navy = Color(0xFF0D1727);
-    const cyan = Color(0xFF22D3EE);
+    const navy = Color(0xFF0D0D0D);
+    const cyan = Color(0xFF3B82F6);
+    const neutral = Color(0xFFB8B8B8);
 
     final siteLabel = (data.contract?.siteLabel ?? 'MON SITE').toUpperCase();
     final storage = data.equipment
@@ -284,9 +285,9 @@ class DashboardPage extends StatelessWidget {
                 height: 9,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color(0xFF34D399),
+                  color: neutral,
                   boxShadow: [
-                    BoxShadow(color: Color(0xFF34D399), blurRadius: 8),
+                    BoxShadow(color: neutral, blurRadius: 8),
                   ],
                 ),
               ),
@@ -300,7 +301,7 @@ class DashboardPage extends StatelessWidget {
                       12,
                       weight: FontWeight.w700,
                       letterSpacing: 2,
-                      color: const Color(0xFF34D399),
+                      color: neutral,
                     ),
                   ),
                 ),
@@ -311,8 +312,8 @@ class DashboardPage extends StatelessWidget {
           row('SITE', siteLabel, Colors.white),
           Divider(color: Colors.white.withValues(alpha: 0.08)),
           row('CAMÉRAS', '$cameras/$cameras EN LIGNE', cyan),
-          row('ENREGISTREMENT', 'NVR ACTIF · 24/7', const Color(0xFF34D399)),
-          row('DISQUE NVR', storageLabel, const Color(0xFFD97706)),
+          row('ENREGISTREMENT', 'NVR ACTIF · 24/7', AppColors.record),
+          row('DISQUE NVR', storageLabel, AppColors.focus),
           Divider(color: Colors.white.withValues(alpha: 0.08)),
           row(
             'DERNIÈRE SYNCHRO',

@@ -352,7 +352,7 @@ class _WarrantyBadge extends StatelessWidget {
     }
     if (e.warrantyExpiringSoon) {
       final days = e.warrantyUntil!.difference(DateTime.now()).inDays;
-      return TechBadge('Garantie J-$days', color: const Color(0xFFD97706));
+      return TechBadge('Garantie J-$days', color: const Color(0xFFFACC15));
     }
     return TechBadge('Sous garantie', color: AppColors.tertiary);
   }

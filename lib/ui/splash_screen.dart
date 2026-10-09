@@ -14,7 +14,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-  static const _navy = Color(0xFF0D1727);
+  static const _navy = Color(0xFF000000);
 
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -66,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen>
           gradient: RadialGradient(
             center: Alignment.topCenter,
             radius: 1.4,
-            colors: [_navy, const Color(0xFF0A1220)],
+            colors: [_navy, const Color(0xFF0A0A0A)],
           ),
         ),
         child: FadeTransition(
@@ -85,7 +85,7 @@ class _SplashScreenState extends State<SplashScreen>
                       boxShadow: [
                         BoxShadow(
                           color: const Color(
-                            0xFF22D3EE,
+                            0xFF3B82F6,
                           ).withValues(alpha: 0.35),
                           blurRadius: 60,
                           spreadRadius: 4,
@@ -107,7 +107,7 @@ class _SplashScreenState extends State<SplashScreen>
                       fontSize: 34,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 6,
-                      color: AppColors.card,
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -117,7 +117,7 @@ class _SplashScreenState extends State<SplashScreen>
                       11,
                       weight: FontWeight.w600,
                       letterSpacing: 3,
-                      color: const Color(0xFF22D3EE),
+                      color: const Color(0xFF3B82F6),
                     ),
                   ),
                   const SizedBox(height: 44),
@@ -128,7 +128,7 @@ class _SplashScreenState extends State<SplashScreen>
                       child: LinearProgressIndicator(
                         minHeight: 3,
                         backgroundColor: Colors.white.withValues(alpha: 0.08),
-                        color: const Color(0xFF22D3EE),
+                        color: const Color(0xFF3B82F6),
                       ),
                     ),
                   ),

@@ -13,9 +13,9 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  static const _navy = Color(0xFF0D1727);
-  static const _navyDeep = Color(0xFF0A1220);
-  static const _cyan = Color(0xFF22D3EE);
+  static const _navy = Color(0xFF000000);
+  static const _navyDeep = Color(0xFF000000);
+  static const _cyan = Color(0xFF3B82F6);
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -205,7 +205,7 @@ class _LoginPageState extends State<LoginPage> {
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 4,
-                        color: AppColors.card,
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 8),
