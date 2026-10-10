@@ -1,5 +1,14 @@
+# ═══════════════════════════════════════════════════════════
+# go2rtc — Configuration de DÉMONSTRATION
+#
+# ⚠️ Les vraies URLs (avec identifiants) sont dans Supabase
+#    (table equipment.stream_url) — pas dans ce fichier.
+# ═══════════════════════════════════════════════════════════
+
 api:
   listen: ":1984"
+  username: eyesafe
+  password: ChangeMoi-2026!
 
 rtsp:
   listen: ":8554"
@@ -7,12 +16,7 @@ rtsp:
 ffmpeg:
   bin: /usr/bin/ffmpeg
 
-streams:
-  boutique_1:
-    - rtsp://admin:Admin123%40@192.168.100.74:554/cam/realmonitor?channel=1&subtype=1
-  boutique_2:
-    - rtsp://admin:Admin123%40@192.168.100.74:554/cam/realmonitor?channel=2&subtype=1
-  boutique_3:
-    - rtsp://admin:Admin123%40@192.168.100.74:554/cam/realmonitor?channel=3&subtype=1
-  boutique_4:
-    - rtsp://admin:Admin123%40@192.168.100.74:554/cam/realmonitor?channel=4&subtype=1
+# Exemples (remplace par tes vraies caméras) :
+# streams:
+#   camera_1:
+#     - rtsp://utilisateur:motdepasse@IP_NVR:554/cam/realmonitor?channel=1&subtype=1
