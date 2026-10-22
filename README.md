@@ -13,6 +13,8 @@ connecte les caméras et répond aux incidents.
   d'erreur explicite au lieu d'un mode démo.
 - **Identité production** : `ci.eyesafe.app`, signée avec un keystore
   dédié (`~/eyesafe-release.keystore`, hors du projet — **à sauvegarder**).
+- **Infrastructure** : VPS OVH (148.113.241.146, ~5€/mois) avec go2rtc,
+  anti-pause Supabase et Cloudflare Tunnel opérationnels.
 
 ---
 
@@ -55,6 +57,23 @@ Installation : `adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-relea
 flutter analyze   # 0 problème attendu
 flutter test      # 130 tests (unitaires + widgets)
 ```
+
+### Infrastructure (VPS OVH)
+
+```yaml
+VPS: 148.113.241.146 (Ubuntu, ~5€/mois)
+Services:
+  - go2rtc (relais vidéo, port 1984)     # actif
+  - anti-pause Supabase (cron 6h)          # actif
+  - Cloudflare Tunnel                       # connecté
+  - Identifiants go2rtc: eyesafe / Cloud-EyeSafe-2026!
+```
+
+⚠️ **Limite actuelle (CGNAT Orange CI)** : le VPS ne peut pas joindre
+les NVR des clients car Orange CI utilise du CGNAT (IP partagée).
+Le direct à distance nécessite soit un boîtier chez le client (~15 000 F),
+soit une IP publique d'Orange (~5 000 F/mois), soit le P2P Dahua
+(via l'app DMSS du constructeur, pas via EyeSafe).
 
 ---
 
@@ -398,7 +417,43 @@ Une mosaïque 4×4 ≠ 16 flux simultanés (aucune 4G/ADSL ne tient) :
 
 ## 7. Serveur vidéo go2rtc (`go2rtc/`)
 
-`go2rtc.yaml` documente le montage complet :
+`go2rtc.yaml` documente le montage complet (VPS OVH production) :
+
+| Composant | Où | État |
+|---|---|---|
+| **go2rtc relais** | VPS OVH (148.113.241.146:1984) | ✅ actif 24/7 |
+| **Anti-pause Supabase** | VPS (cron toutes les 6h) | ✅ actif |
+| **Cloudflare Tunnel** | VPS → Cloudflare | ✅ connecté |
+| **go2rtc-boitier-site.yaml** | Template pour boîtier local | 📋 prêt |
+| **enregistrement-auto.sh** | Boîtier local (lit Supabase) | 📋 prêt |
+| **install-boitier.sh** | Installation auto boîtier (1 cmd) | 📋 prêt |
+
+### Accès vidéo selon le contexte
+
+| Contexte | Méthode | Latence |
+|---|---|---|
+| **Sur le WiFi du client** | RTSP direct vers le NVR | 3-5 s |
+| **À distance (CGNAT)** | go2rtc sur VPS ← boîtier local | < 1 s |
+| **À distance (IP publique)** | go2rtc sur VPS → NVR direct | < 1 s |
+| **À distance (P2P Dahua)** | App DMSS (pas EyeSafe) | ~2 s |
+
+### ⚠️ Limite CGNAT Orange CI (constatée au terrain)
+
+Orange CI utilise du **CGNAT** (IP `10.x.x.x` sur la box, partagée entre
+plusieurs abonnés) : aucune connexion entrante n'est possible, même avec
+DDNS + redirection de port. Le VPS ne peut donc pas joindre le NVR du
+client à distance sans l'un de ces ponts :
+
+| Pont | Coût | Fiable 24/7 |
+|---|---|---|
+| **Mini-boîtier WireGuard** (TP-Link MR3020) | 15 000 F | ✅ |
+| **IP publique d'Orange** | ~5 000 F/mois | ✅ |
+| **App DMSS Dahua** (P2P intégré) | 0 F | ✅ (mais pas EyeSafe) |
+
+> Le P2P Dahua du NVR contourne le CGNAT nativement (connexion sortante),
+> mais c'est un protocole propriétaire : notre app ne peut pas le lire.
+> L'app EyeSafe reste 100% fonctionnelle pour le suivi (tickets, alertes,
+> équipe, maintenance) — seule la vidéo à distance nécessite un pont.
 
 - `api: :1984` (interface admin + flux HLS `/api/stream.m3u8?src=…`)
 - **WebRTC/WHEP `/api/webrtc?src=…` — latence < 1 s** : l'app négocie
@@ -453,7 +508,15 @@ via WHEP), `HLS` (repli), `RTSP` (direct NVR/caméra via media_kit).
 - Permissions Android : INTERNET, réseau/WiFi (découverte ONVIF multicast),
   RECORD_AUDIO (talk-back)
 
-Taille d'APK : ~47 Mo (arm64) dont ~12 Mo de libwebrtc natif — le prix de
+- **VPS OVH** (Ubuntu, ~5€/mois) — go2rtc relais central, anti-pause
+  Supabase (cron), Cloudflare Tunnel
+- **No-IP DDNS** (`boutique-dsi.ddns.net`) — suivi automatique de l'IP
+  client (gratuit avec confirmation mensuelle par email)
+- **P2P Dahua** — activé sur le NVR du client (contourne le CGNAT,
+  accessible via l'app DMSS du constructeur, pas via EyeSafe)
+- **audioplayers** — sons de notification (générés en mémoire)
+
+Taille d'APK : ~48 Mo (arm64) dont ~12 Mo de libwebrtc natif — le prix de
 la latence sub-secondaire.
 
 ---
@@ -465,8 +528,9 @@ la latence sub-secondaire.
 | 🔴 Critique | **Replay / enregistrements** | ✅ **ONVIF standard** (Recording Search — Dahua, Axis, Uniview, Hikvision) avec orchestration complète + **repli ISAPI** (Hikvision sans service standard). Navigateur de segments par jour, badge « · ONVIF », lecture media_kit, RETOUR DIRECT |
 | 🔴 Critique | **Talk-back audio Hikvision** | ✅ Hikvision ISAPI (openTalk + talk-data chunked) — micro G.711 μ-law 8 kHz, maintenir le bouton 🎙. Permission RECORD_AUDIO |
 | 🔴 Critique | **Talk-back multi-marques** | ⏳ Dahua, Axis, Uniview non couverts — le talk-back n'est pas standardisé ONVIF : adapter par marque (Dahua : HTTP audio API `audio.cgi` en PCM/G.711 ; Axis : VAPIX `aximg-cgi/audio.cgi` ; Uniview : LAPI audio). Suivre le patron G.711 déjà en place |
-| 🔴 Critique | **Validation terrain (matériel réel)** | 🟨 **en cours** — Dahua NVR validé en production (connexion 8 caméras + direct RTSP + correctif latence low-latency libmpv). Reste à valider : replay ONVIF, événements PullPoint, talk-back Hikvision, PTZ, IR sur chaque marque du parc |
-| 🔴 Critique | **Alertes push intrusion (app fermée)** | ⏳ Une intrusion/tamper détectée n'alerte personne si aucune app n'est ouverte — le poller tourne côté app technicien uniquement. Solution : Edge Function Supabase (worker 24/7 qui poll les caméras + FCM vers les clients du site). L'infrastructure est prête : FCM câblé, table `camera_events` + Realtime en place — il ne manque que le worker |
+| 🔴 Critique | **Validation terrain (matériel réel)** | 🟨 **en cours** — Dahua NVR validé (connexion 8 caméras + direct RTSP local + P2P Dahua activé). Reste : replay ONVIF, événements, talk-back, PTZ, IR sur chaque marque |
+| 🔴 Critique | **Alertes push intrusion (app fermée)** | ⏳ Une intrusion/tamper détectée n'alerte personne si aucune app n'est ouverte. Solution : Edge Function Supabase (worker 24/7 + FCM vers les clients). Infrastructure prête — il manque le worker |
+| 🔴 Critique | **Vidéo à distance (CGNAT Orange CI)** | ⏳ Le VPS ne peut pas joindre les NVR derrière le CGNAT d'Orange CI. Solutions : boîtier WireGuard (~15 000 F/client), IP publique d'Orange (~5 000 F/mois), ou P2P Dahua via DMSS (pas EyeSafe). En attendant : vidéo locale (WiFi du client) fonctionne |
 | 🟠 Important | Événements ONVIF PullPoint | ✅ **livré** — pollers 3 s par caméra, anti-bruit (dédup 30 s + priorisation critique/mouvement + résumé multi-caméras), badge MOUVEMENT temps réel, sons de notification, persistance des critiques (`camera_events` + Realtime, migration 10) |
 | 🟠 Important | Marques cloud-only (Ezviz, Tapo, Xiaomi) | 🟨 contournement : activer le RTSP local dans leur app (Tapo : réglages avancés ; Ezviz : selon modèles) puis URL SIMPLE. Intégration directe = leurs SDK cloud, hors périmètre actuel |
 | 🟡 Moyen | Coffre-fort credentials | ⏳ les URLs RTSP restent en clair dans `equipment.stream_url` (limite documentée §5) ; verrouillage complet = passer par le relais + REVOKE |
@@ -474,11 +538,23 @@ la latence sub-secondaire.
 | 🟡 Moyen | Emails transactionnels | 🟨 SMTP intégré Supabase actif (limité 2-3/h) — prévoir domaine + Resend/Brevo à la montée en charge |
 | 🟢 Long terme | ONVIF Profile V | 👀 veille — notre stack s'y aligne déjà (sortant + WebRTC) |
 
-> **Terrain (30 sept. 2026)** : premier déploiement réel validé — NVR Dahua 8 canaux
-> (« Boutique », Koumassi) connecté par le client en autonomie complète
-> (création compte + installation + branchement caméras via NVR LOCAL).
-> Direct RTSP fonctionnel avec correctif latence (low-latency libmpv).
-> Reste à tester : replay, événements, talk-back, PTZ sur ce Dahua.
+> **Terrain (oct. 2026)** — retours réels :
+>
+> • **Boutique DSI (Koumassi)** — NVR Dahua 8 canaux, XVR hybride,
+>   P2P Dahua activé (Device ID : 5E09D3FPBQ44C59), box Orange HG8141H5.
+>   - ✅ Connexion des caméras via NVR LOCAL (autonome, le client a créé
+>     son compte + installation tout seul)
+>   - ✅ Direct RTSP en local (WiFi du client) avec latence corrigée
+>   - ❌ Direct à distance : **CGNAT Orange CI** bloque tout entrant
+>     (IP WAN de la box : 10.178.114.64 → privé partagé)
+>   - 📋 DDNS No-IP configuré (`boutique-dsi.ddns.net`) mais inutile avec
+>     CGNAT
+>   - 📋 Redirection de port (554/37777) configurée sur la box mais
+>     inefficace avec CGNAT
+>   - 📋 Cloudflare Tunnel opérationnel sur le VPS — en attente d'un pont
+>     côté client (boîtier ou appareil dédié)
+>
+> • **Boutique (ancien site)** — supprimé (compte + données)
 
 > Variance firmwares : le talk-back et la recherche d'enregistrements
 > ISAPI peuvent varier selon les générations Hikvision — best-effort avec
