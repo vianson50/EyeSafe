@@ -2669,6 +2669,40 @@ class _CameraTileState extends State<_CameraTile> {
     }
   }
 
+  /// Signalement express depuis la tuile : 1 tap → formulaire pré-rempli.
+  void _quickReport(BuildContext context) {
+    final data = DataScope.of(context);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DataScope(
+          controller: data,
+          child: Scaffold(
+            backgroundColor: AppColors.background,
+            appBar: AppBar(
+              backgroundColor: AppColors.card,
+              foregroundColor: AppColors.onSurface,
+              elevation: 0,
+              title: Text(
+                'Signaler une panne — ${widget.camera.name}',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ),
+            body: Center(
+              child: Text(
+                'Le formulaire de signalement sera intégré ici.',
+                style: TextStyle(color: AppColors.onSurfaceVariant),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cam = widget.camera;
@@ -2824,6 +2858,31 @@ class _CameraTileState extends State<_CameraTile> {
                             ),
                           ),
                       ],
+                    ),
+                  ),
+                ),
+                // Bouton signalement express (1 tap)
+                Positioned(
+                  top: 8,
+                  right: 48,
+                  child: GestureDetector(
+                    onTap: () => _quickReport(context),
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.report_problem_outlined,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
                     ),
                   ),
                 ),

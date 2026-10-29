@@ -208,7 +208,7 @@ void main() {
       );
 
       expect(controller.tickets, hasLength(initialCount + 1));
-      expect(controller.tickets.first.title, 'Écran noir');
+      expect(controller.tickets.first.title, '🟢 MINEUR — Écran noir');
       expect(controller.tickets.first.status, TicketStatus.pending);
       expect(controller.tickets.first.equipment, contains('EQ-002'));
       controller.dispose();

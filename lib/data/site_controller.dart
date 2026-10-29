@@ -739,10 +739,12 @@ class SiteController extends ChangeNotifier {
   }
 
   /// Crée un ticket. Retourne null si succès, sinon un message d'erreur.
+  /// [severity] : gravité du signalement (bloquant / degr / mineur).
   Future<String?> createTicket({
     required String title,
     required String equipmentId,
     required String description,
+    String severity = 'mineur',
     Uint8List? photoBytes,
     String photoExtension = 'jpg',
   }) async {
@@ -752,6 +754,14 @@ class SiteController extends ChangeNotifier {
         .followedBy([equipmentId])
         .first;
 
+    // Préfixe la gravité dans le titre pour le tri côté technicien.
+    final sevLabel = switch (severity) {
+      'bloquant' => '🔴 BLOQUANT',
+      'degrade' => '🟠 DÉGRADÉ',
+      _ => '🟢 MINEUR',
+    };
+    final fullTitle = '$sevLabel — $title';
+
     if (_client == null) {
       // Mode démo : ajout local (+ pollers d'événements).
       tickets = List.of(tickets)
@@ -759,7 +769,7 @@ class SiteController extends ChangeNotifier {
           0,
           Ticket(
             id: 'TK-${2042 + tickets.length}',
-            title: title,
+            title: fullTitle,
             equipment: equipmentLabel,
             description: description,
             status: TicketStatus.pending,
@@ -776,7 +786,7 @@ class SiteController extends ChangeNotifier {
     if (uid == null) return 'Session expirée — reconnectez-vous.';
 
     try {
-      // Upload de la photo dans le bucket privé (chemin : {site_id}/{…}).
+      // Upload de la photo dans le bucket privé (chemin : {site_id}/…).
       String? photoPath;
       if (photoBytes != null) {
         final ext = photoExtension.replaceAll('.', '').toLowerCase();
@@ -801,8 +811,9 @@ class SiteController extends ChangeNotifier {
       await _client.from('tickets').insert({
         'site_id': _siteId,
         'equipment_id': equipmentId,
-        'title': title,
+        'title': fullTitle,
         'description': description,
+        'severity': severity,
         'status': 'pending',
         'opened_by': uid,
         'photo_url': ?photoPath,

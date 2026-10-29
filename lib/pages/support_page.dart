@@ -55,20 +55,28 @@ class SupportPageState extends State<SupportPage> {
         equipment: data.equipment,
         photoAttached: _photoFile != null,
         onPhoto: (source) => _pickPhoto(source),
-        onSubmit: (type, equipmentId, description, photoAttached) async {
-          Navigator.of(context).pop();
-          final photo = _photoFile;
-          final error = await data.createTicket(
-            title: type,
-            equipmentId: equipmentId,
-            description: description,
-            photoBytes: photo == null ? null : await photo.readAsBytes(),
-            photoExtension: photo?.name.split('.').last ?? 'jpg',
-          );
-          _snack(
-            error ?? 'Incident signalé — votre installateur a été notifié',
-          );
-        },
+        onSubmit:
+            (
+              type,
+              equipmentId,
+              description,
+              photoAttached, {
+              severity = 'mineur',
+            }) async {
+              Navigator.of(context).pop();
+              final photo = _photoFile;
+              final error = await data.createTicket(
+                title: type,
+                equipmentId: equipmentId,
+                description: description,
+                severity: severity,
+                photoBytes: photo == null ? null : await photo.readAsBytes(),
+                photoExtension: photo?.name.split('.').last ?? 'jpg',
+              );
+              _snack(
+                error ?? 'Incident signalé — votre installateur a été notifié',
+              );
+            },
       ),
     );
   }
@@ -896,8 +904,9 @@ class _IncidentForm extends StatefulWidget {
     String type,
     String equipmentId,
     String description,
-    bool photoAttached,
-  )
+    bool photoAttached, {
+    String severity,
+  })
   onSubmit;
 
   @override
@@ -908,6 +917,7 @@ class _IncidentFormState extends State<_IncidentForm> {
   final _formKey = GlobalKey<FormState>();
   String? _type;
   String? _equipment;
+  String _severity = 'mineur';
   final _description = TextEditingController();
   bool _submitting = false;
 
@@ -1002,6 +1012,27 @@ class _IncidentFormState extends State<_IncidentForm> {
                 onChanged: (v) => setState(() => _equipment = v),
               ),
               const SizedBox(height: 14),
+              // Gravité : 3 boutons rapides
+              Text(
+                'GRAVITÉ',
+                style: monoStyle(
+                  10,
+                  weight: FontWeight.w700,
+                  letterSpacing: 1,
+                  color: AppColors.onSurfaceFaint,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _severityTab('bloquant', '🔴 Bloquant', 'Tout est arrêté'),
+                  const SizedBox(width: 8),
+                  _severityTab('degrade', '🟠 Dégradé', 'Marche mal'),
+                  const SizedBox(width: 8),
+                  _severityTab('mineur', '🟢 Mineur', 'Gênant'),
+                ],
+              ),
+              const SizedBox(height: 14),
               TextFormField(
                 controller: _description,
                 maxLines: 3,
@@ -1055,6 +1086,7 @@ class _IncidentFormState extends State<_IncidentForm> {
                           _equipment!,
                           _description.text.trim(),
                           widget.photoAttached,
+                          severity: _severity,
                         );
                       },
               ),
@@ -1083,6 +1115,43 @@ class _IncidentFormState extends State<_IncidentForm> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+    );
+  }
+
+  /// Bouton de gravité — 3 taps maximum pour créer un ticket.
+  Widget _severityTab(String value, String label, String hint) {
+    final selected = _severity == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _severity = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primaryContainer : AppColors.surfaceLow,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? AppColors.primary : AppColors.outline,
+            ),
+          ),
+          child: Column(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: selected
+                      ? AppColors.primary
+                      : AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(hint, style: monoStyle(9, color: AppColors.onSurfaceFaint)),
+            ],
+          ),
+        ),
       ),
     );
   }
