@@ -8,6 +8,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:record/record.dart';
 
+import '../core/feature_flags.dart';
 import '../data/g711.dart';
 import '../data/models.dart';
 import '../data/brand_api.dart';
@@ -1025,21 +1026,23 @@ class _ConnectNvrDialogState extends State<_ConnectNvrDialog> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _modeTab(_ConnectMode.onvif, 'ONVIF'),
-                      _modeTab(_ConnectMode.relay, 'RELAI GO2RTC'),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _modeTab(_ConnectMode.cloud, 'CLOUD (P2P)'),
-                      _modeTab(_ConnectMode.isapi, 'API MARQUE'),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
                   Row(children: [_modeTab(_ConnectMode.url, 'URL SIMPLE')]),
+                  if (FeatureFlags.enableExtendedConnectMethods) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _modeTab(_ConnectMode.onvif, 'ONVIF'),
+                        _modeTab(_ConnectMode.relay, 'RELAI GO2RTC'),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _modeTab(_ConnectMode.cloud, 'CLOUD (P2P)'),
+                        _modeTab(_ConnectMode.isapi, 'API MARQUE'),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -2593,6 +2596,7 @@ class _CameraTileState extends State<_CameraTile> {
   /// le sous-flux.
   Widget? get _livePreviewWidget {
     if (_probeDisabled || _livePreviewFailed || _accessRefused) return null;
+    if (!FeatureFlags.enableTilePreviews) return null;
     final url = _authorizedUrl;
     if (url == null) return null;
     final data = DataScope.of(context);
@@ -3401,8 +3405,17 @@ class _LiveViewState extends State<_LiveView> {
       return;
     }
 
-    final whepUrl =
-        _webrtcFailed ? null : WhepClient.deriveWhepUrl(url);
+    if (!FeatureFlags.enableVideoLive) {
+      setState(() {
+        _error = 'Direct vidéo temporairement désactivé.';
+        _mode = _StreamMode.error;
+      });
+      return;
+    }
+
+    final whepUrl = (_webrtcFailed || !FeatureFlags.enableWebRtc)
+        ? null
+        : WhepClient.deriveWhepUrl(url);
     if (whepUrl != null) {
       unawaited(_startWebrtc(url, whepUrl));
     } else {
@@ -3650,6 +3663,7 @@ class _LiveViewState extends State<_LiveView> {
   /// le service de recherche standard.
   Future<void> _openReplay() async {
     if (!_isOnvifReplayCapable && !_isHikvisionRtsp) return;
+    if (!FeatureFlags.enableReplay) return;
 
     // Segment générique retourné par la feuille (ONVIF ou ISAPI).
     final segment =
@@ -3695,7 +3709,7 @@ class _LiveViewState extends State<_LiveView> {
   /// Talk-back : maintenir le bouton → le micro est diffusé sur la
   /// caméra (G.711 μ-law 8 kHz). Relâcher = fin.
   Future<void> _startTalk() async {
-    if (_talking || !_isHikvisionRtsp) return;
+    if (_talking || !_isHikvisionRtsp || !FeatureFlags.enableTalkBack) return;
     try {
       if (!await _recorder.hasPermission()) return;
       final session = await _hikDevice().openTalk();
@@ -3924,11 +3938,7 @@ class _LiveViewState extends State<_LiveView> {
                     color: AppColors.record.withValues(alpha: 0.6),
                   ),
                 ),
-                child: Icon(
-                  Icons.history,
-                  size: 17,
-                  color: AppColors.record,
-                ),
+                child: Icon(Icons.history, size: 17, color: AppColors.record),
               ),
             ),
           if (_isHikvisionRtsp)
@@ -4072,16 +4082,18 @@ class _LiveViewState extends State<_LiveView> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: (_replayLabel != null
-                              ? AppColors.record
-                              : Colors.white)
-                          .withValues(alpha: 0.15),
+                      color:
+                          (_replayLabel != null
+                                  ? AppColors.record
+                                  : Colors.white)
+                              .withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: (_replayLabel != null
-                                ? AppColors.record
-                                : Colors.white)
-                            .withValues(alpha: 0.6),
+                        color:
+                            (_replayLabel != null
+                                    ? AppColors.record
+                                    : Colors.white)
+                                .withValues(alpha: 0.6),
                       ),
                     ),
                     child: Text(
