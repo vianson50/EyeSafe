@@ -39,4 +39,37 @@ class FeatureFlags {
   /// Bande passante mosaïque (quota live, snapshots 5s).
   /// Garder — évite de saturer le réseau.
   static const bool enableBandwidthScheduler = true;
+
+  // ═══════════════════════════════════════════════════════
+  // Phase 2 — Signalement de panne
+  // ═════════════════════════════════════════════════════
+
+  /// Gravité sur les tickets (bloquant/dégradé/mineur).
+  static const bool enableTicketSeverity = true;
+
+  /// Bouton signalement express sur chaque tuile caméra.
+  static const bool enableQuickReport = true;
+
+  /// Badge HORS LIGNE renforcé.
+  static const bool enableOfflineBadge = true;
+
+  // ═════════════════════════════════════════════════════
+  // Phase 3 — Diagnostic automatique
+  // ═══════════════════════════════════════════════════
+
+  /// Health check (Edge Function ping TCP 5 min, table equipment_health).
+  static const bool enableHealthCheck = false; // Phase 3
+
+  /// Badge uptime 7 jours sur le dashboard.
+  static const bool enableUptimeBadge = false; // Phase 3
+
+  // ═════════════════════════════════════════════════════
+  // Phase 4 — Communication
+  // ═══════════════════════════════════════════════════
+
+  /// Chat par ticket (Supabase Realtime).
+  static const bool enableTicketChat = false; // Phase 4
+
+  /// Rappels de maintenance J-7/J-1.
+  static const bool enableMaintenanceReminders = false; // Phase 4
 }
