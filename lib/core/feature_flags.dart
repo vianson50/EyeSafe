@@ -58,18 +58,18 @@ class FeatureFlags {
   // ═══════════════════════════════════════════════════
 
   /// Health check (Edge Function ping TCP 5 min, table equipment_health).
-  static const bool enableHealthCheck = false; // Phase 3
+  static const bool enableHealthCheck = true; // Phase 3 — activé
 
   /// Badge uptime 7 jours sur le dashboard.
-  static const bool enableUptimeBadge = false; // Phase 3
+  static const bool enableUptimeBadge = true; // Phase 3 — activé
 
   // ═════════════════════════════════════════════════════
   // Phase 4 — Communication
   // ═══════════════════════════════════════════════════
 
   /// Chat par ticket (Supabase Realtime).
-  static const bool enableTicketChat = false; // Phase 4
+  static const bool enableTicketChat = true; // Phase 4 — activé
 
   /// Rappels de maintenance J-7/J-1.
-  static const bool enableMaintenanceReminders = false; // Phase 4
+  static const bool enableMaintenanceReminders = true; // Phase 4 — activé
 }
